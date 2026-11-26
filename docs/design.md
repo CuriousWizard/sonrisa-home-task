@@ -130,16 +130,16 @@ Database access uses `drizzle-orm/node-postgres` with the `pg` driver. Migration
 
 All ids are UUIDs except `sources.id` and `channels.id`. All timestamps are `timestamptz` in UTC.
 
-| Table | Columns | Constraints and indexes |
-|---|---|---|
-| `users` | id, email, password_hash, role, created_at | email unique, stored lowercase. role in (`user`, `admin`) |
-| `targets` | id, user_id, name, channel, config jsonb, created_at | user_id references users on delete cascade |
-| `alerts` | id, user_id, name, category, filters jsonb, min_severity, enabled, created_at, updated_at | user_id references users on delete cascade. min_severity between 1 and 5 |
-| `alert_targets` | alert_id, target_id | primary key on both. Both reference their tables on delete cascade |
-| `events` | id, source_id, external_id, category, title, summary, severity, data jsonb, occurred_at, created_at | unique (source_id, external_id). Index (category, created_at desc). `source_id` has no foreign key, so injected events can use `dev` |
-| `sources` | id, category, enabled, updated_at | Rows come from the source registry at startup |
-| `channels` | id, enabled, updated_at | Rows come from the channel registry at startup |
-| `deliveries` | id, alert_id, event_id, target_id, channel, status, attempts, next_attempt_at, last_error, sent_at, created_at, updated_at | unique (alert_id, event_id, target_id) for R9. alert_id, event_id and target_id reference their tables on delete cascade. `attempts` not null default 0. `next_attempt_at` not null default now(). Index (status, next_attempt_at) |
+| Table           | Columns                                                                                                                    | Constraints and indexes                                                                                                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`         | id, email, password_hash, role, created_at                                                                                 | email unique, stored lowercase. role in (`user`, `admin`)                                                                                                                                                                          |
+| `targets`       | id, user_id, name, channel, config jsonb, created_at                                                                       | user_id references users on delete cascade                                                                                                                                                                                         |
+| `alerts`        | id, user_id, name, category, filters jsonb, min_severity, enabled, created_at, updated_at                                  | user_id references users on delete cascade. min_severity between 1 and 5                                                                                                                                                           |
+| `alert_targets` | alert_id, target_id                                                                                                        | primary key on both. Both reference their tables on delete cascade                                                                                                                                                                 |
+| `events`        | id, source_id, external_id, category, title, summary, severity, data jsonb, occurred_at, created_at                        | unique (source_id, external_id). Index (category, created_at desc). `source_id` has no foreign key, so injected events can use `dev`                                                                                               |
+| `sources`       | id, category, enabled, updated_at                                                                                          | Rows come from the source registry at startup                                                                                                                                                                                      |
+| `channels`      | id, enabled, updated_at                                                                                                    | Rows come from the channel registry at startup                                                                                                                                                                                     |
+| `deliveries`    | id, alert_id, event_id, target_id, channel, status, attempts, next_attempt_at, last_error, sent_at, created_at, updated_at | unique (alert_id, event_id, target_id) for R9. alert_id, event_id and target_id reference their tables on delete cascade. `attempts` not null default 0. `next_attempt_at` not null default now(). Index (status, next_attempt_at) |
 
 At startup the API inserts a `sources` row for each registered source and a `channels` row for each registered channel, with `enabled = true`, using `on conflict do nothing`. A restart never overwrites a switch the admin has set.
 
@@ -187,20 +187,20 @@ stateDiagram-v2
 
 `matchesFilters(event, alert)` returns true only when the event category equals the alert category, `event.severity >= alert.minSeverity`, and the category rule below holds.
 
-| Category | Rule |
-|---|---|
-| news | `keywords` is empty, or at least one keyword appears in the title or summary as a whole word, case-insensitive. A keyword is regex-escaped and wrapped in Unicode lookarounds, `(?<![\p{L}\p{N}])` before it and `(?![\p{L}\p{N}])` after it, with the `iu` flags. `\b` is not used because it fails for keywords such as `C++` and `$TSLA`. |
-| market | `symbols` is empty or contains the event symbol, compared in uppercase. `direction` is `any`, or `up` with `changePct > 0`, or `down` with `changePct < 0`. `abs(changePct) >= minChangePct`. |
-| disaster | `types` is empty or contains the event type. `regions` is empty or contains the event region. If `minMagnitude` is set and the event is an earthquake, the event must have a magnitude and it must be at least `minMagnitude`. An earthquake without a magnitude does not match. `minMagnitude` is ignored for other types. |
+| Category | Rule                                                                                                                                                                                                                                                                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| news     | `keywords` is empty, or at least one keyword appears in the title or summary as a whole word, case-insensitive. A keyword is regex-escaped and wrapped in Unicode lookarounds, `(?<![\p{L}\p{N}])` before it and `(?![\p{L}\p{N}])` after it, with the `iu` flags. `\b` is not used because it fails for keywords such as `C++` and `$TSLA`. |
+| market   | `symbols` is empty or contains the event symbol, compared in uppercase. `direction` is `any`, or `up` with `changePct > 0`, or `down` with `changePct < 0`. `abs(changePct) >= minChangePct`.                                                                                                                                                |
+| disaster | `types` is empty or contains the event type. `regions` is empty or contains the event region. If `minMagnitude` is set and the event is an earthquake, the event must have a magnitude and it must be at least `minMagnitude`. An earthquake without a magnitude does not match. `minMagnitude` is ignored for other types.                  |
 
 ### Severity for simulated events
 
-| Category | Severity |
-|---|---|
-| market | from `abs(changePct)`: below 2 is 1, below 5 is 2, below 10 is 3, below 20 is 4, otherwise 5 |
-| disaster, earthquake | from magnitude: below 5 is 1, below 6 is 2, below 7 is 3, below 8 is 4, otherwise 5 |
-| disaster, other types | random from 1 to 5 |
-| news | random from 1 to 5. Titles of severity 4 and 5 start with "Breaking:" |
+| Category              | Severity                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| market                | from `abs(changePct)`: below 2 is 1, below 5 is 2, below 10 is 3, below 20 is 4, otherwise 5 |
+| disaster, earthquake  | from magnitude: below 5 is 1, below 6 is 2, below 7 is 3, below 8 is 4, otherwise 5          |
+| disaster, other types | random from 1 to 5                                                                           |
+| news                  | random from 1 to 5. Titles of severity 4 and 5 start with "Breaking:"                        |
 
 Simulated market moves are mostly small, so high severity is rare on the timer. Demos use `/api/dev/events` to get a specific event.
 
@@ -248,19 +248,19 @@ The scheduler keeps one `setTimeout` chain per registered source and calls `next
 
 ## Security
 
-| Concern | Measure |
-|---|---|
-| Password storage | `node:crypto` scrypt with a 16-byte random salt. Stored as `scrypt$N$r$p$salt$hash`. Compared with `timingSafeEqual`. No native module is needed. |
-| Session | JWT signed with HS256 and `JWT_SECRET`. Verification pins the algorithm to HS256 and reads the token only from the cookie. Claims are `sub` and `role`. Expiry is 8 hours. The cookie is named `session`, has `Path=/`, no `Domain` attribute, `HttpOnly`, `SameSite=Strict`, and `Secure` in production. |
-| Secret | `config.ts` rejects a `JWT_SECRET` shorter than 32 characters or equal to the placeholder in `.env.example`. `npm run setup` writes a random 48-byte secret into `.env`. |
-| CSRF | `SameSite=Strict` stops browsers from sending the cookie on cross-site requests, including bodyless POSTs. The app removes Fastify's default `text/plain` parser, so routes with a body accept only `application/json`. |
-| Authorization | `requireUser` verifies the JWT and loads the user from the database, so a deleted user loses access at once. `requireAdmin` checks the role from that database row, not from the token. Every admin route uses `requireAdmin`. |
-| Object access | Every target and alert query filters by `user_id`. A request for another user's object returns 404. Alert `targetIds` must belong to the same user. |
-| Brute force | `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/register`. The limit is `AUTH_RATE_LIMIT_MAX` requests per minute per IP, 10 by default. Tests raise it. |
-| Input validation | Handlers parse every body, query and params object with the shared zod schemas. The error handler turns a `ZodError` into a 400 response. Drizzle parameterizes all queries. |
+| Concern                 | Measure                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Password storage        | `node:crypto` scrypt with a 16-byte random salt. Stored as `scrypt$N$r$p$salt$hash`. Compared with `timingSafeEqual`. No native module is needed.                                                                                                                                                                                                                                                                                                                                                                         |
+| Session                 | JWT signed with HS256 and `JWT_SECRET`. Verification pins the algorithm to HS256 and reads the token only from the cookie. Claims are `sub` and `role`. Expiry is 8 hours. The cookie is named `session`, has `Path=/`, no `Domain` attribute, `HttpOnly`, `SameSite=Strict`, and `Secure` in production.                                                                                                                                                                                                                 |
+| Secret                  | `config.ts` rejects a `JWT_SECRET` shorter than 32 characters or equal to the placeholder in `.env.example`. `npm run setup` writes a random 48-byte secret into `.env`.                                                                                                                                                                                                                                                                                                                                                  |
+| CSRF                    | `SameSite=Strict` stops browsers from sending the cookie on cross-site requests, including bodyless POSTs. The app removes Fastify's default `text/plain` parser, so routes with a body accept only `application/json`.                                                                                                                                                                                                                                                                                                   |
+| Authorization           | `requireUser` verifies the JWT and loads the user from the database, so a deleted user loses access at once. `requireAdmin` checks the role from that database row, not from the token. Every admin route uses `requireAdmin`.                                                                                                                                                                                                                                                                                            |
+| Object access           | Every target and alert query filters by `user_id`. A request for another user's object returns 404. Alert `targetIds` must belong to the same user.                                                                                                                                                                                                                                                                                                                                                                       |
+| Brute force             | `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/register`. The limit is `AUTH_RATE_LIMIT_MAX` requests per minute per IP, 10 by default. Tests raise it.                                                                                                                                                                                                                                                                                                                                                        |
+| Input validation        | Handlers parse every body, query and params object with the shared zod schemas. The error handler turns a `ZodError` into a 400 response. Drizzle parameterizes all queries.                                                                                                                                                                                                                                                                                                                                              |
 | SSRF through Slack URLs | At startup, `config.ts` checks each entry in `SLACK_WEBHOOK_ALLOWED_PREFIXES`: it must parse as a URL, end with `/`, and have no user or password. An `http:` prefix is allowed only when `NODE_ENV` is not `production`. For a target URL, `slack-url.ts` parses it with `new URL()`, rejects a user or password, and checks that `origin + pathname` starts with an allowed prefix. The check runs on target create and again before each send. The request goes to the normalized `url.href` with `redirect: 'error'`. |
-| Secrets in errors | Errors stored in `last_error` or returned by the test route never contain the webhook URL or SMTP credentials. Admin delivery responses show the target name, not its config. |
-| Dev routes | `/api/dev/*` is registered only when `NODE_ENV !== 'production'`. |
+| Secrets in errors       | Errors stored in `last_error` or returned by the test route never contain the webhook URL or SMTP credentials. Admin delivery responses show the target name, not its config.                                                                                                                                                                                                                                                                                                                                             |
+| Dev routes              | `/api/dev/*` is registered only when `NODE_ENV !== 'production'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## HTTP API
 
@@ -268,49 +268,49 @@ All routes start with `/api`. Errors use the Fastify default shape `{ statusCode
 
 ### Auth
 
-| Method and path | Access | Body or query | Result |
-|---|---|---|---|
-| POST /auth/register | public | `{ email, password }`, password at least 10 characters | 201, sets cookie, returns user |
-| POST /auth/login | public | `{ email, password }` | 200, sets cookie, returns user. 401 with one generic message for any failure |
-| POST /auth/logout | user | none | 204, clears cookie |
-| GET /auth/me | user | none | `{ id, email, role }` |
+| Method and path     | Access | Body or query                                          | Result                                                                       |
+| ------------------- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| POST /auth/register | public | `{ email, password }`, password at least 10 characters | 201, sets cookie, returns user                                               |
+| POST /auth/login    | public | `{ email, password }`                                  | 200, sets cookie, returns user. 401 with one generic message for any failure |
+| POST /auth/logout   | user   | none                                                   | 204, clears cookie                                                           |
+| GET /auth/me        | user   | none                                                   | `{ id, email, role }`                                                        |
 
 ### Targets (R2, R3)
 
-| Method and path | Body | Result |
-|---|---|---|
-| GET /targets | none | the user's targets |
-| POST /targets | `TargetInput` | 201. 400 if the config fails the schema or the Slack allowlist |
-| DELETE /targets/:id | none | 204. 409 if an alert still uses the target |
-| POST /targets/:id/test | none | sends a test message at once, without the queue. 409 if the channel is disabled. Otherwise returns `{ ok: true }` or `{ ok: false, error }` |
+| Method and path        | Body          | Result                                                                                                                                      |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET /targets           | none          | the user's targets                                                                                                                          |
+| POST /targets          | `TargetInput` | 201. 400 if the config fails the schema or the Slack allowlist                                                                              |
+| DELETE /targets/:id    | none          | 204. 409 if an alert still uses the target                                                                                                  |
+| POST /targets/:id/test | none          | sends a test message at once, without the queue. 409 if the channel is disabled. Otherwise returns `{ ok: true }` or `{ ok: false, error }` |
 
 ### Alerts (R4 to R6)
 
-| Method and path | Body | Result |
-|---|---|---|
-| GET /alerts | none | the user's alerts with their target ids |
-| POST /alerts | `AlertInput`. `targetIds` has at least one id | 201 |
-| GET /alerts/:id | none | one alert |
-| PUT /alerts/:id | `AlertInput` | 200 |
-| PATCH /alerts/:id | `{ enabled }` | 200 |
-| DELETE /alerts/:id | none | 204 |
+| Method and path    | Body                                          | Result                                  |
+| ------------------ | --------------------------------------------- | --------------------------------------- |
+| GET /alerts        | none                                          | the user's alerts with their target ids |
+| POST /alerts       | `AlertInput`. `targetIds` has at least one id | 201                                     |
+| GET /alerts/:id    | none                                          | one alert                               |
+| PUT /alerts/:id    | `AlertInput`                                  | 200                                     |
+| PATCH /alerts/:id  | `{ enabled }`                                 | 200                                     |
+| DELETE /alerts/:id | none                                          | 204                                     |
 
 `AlertInput` is discriminated on `category`, so filters for another category fail with 400.
 
 ### Admin (R12 to R16)
 
-| Method and path | Query or body | Result |
-|---|---|---|
-| GET /admin/users | `limit` | users with alert counts |
-| GET /admin/alerts | `userId` | that user's alerts |
-| GET /admin/events | `category`, `limit` | events, newest first |
-| GET /admin/deliveries | `status`, `channel`, `limit` | deliveries with event title, alert name, target name and user email |
-| POST /admin/deliveries/:id/retry | none | 200. 409 unless the status is `failed`, `dead` or `skipped` |
-| GET /admin/sources | none | sources with `enabled` |
-| PATCH /admin/sources/:id | `{ enabled }` | 200 |
-| GET /admin/channels | none | channels with `enabled` |
-| PATCH /admin/channels/:id | `{ enabled }` | 200 |
-| GET /admin/metrics | none | see below |
+| Method and path                  | Query or body                | Result                                                              |
+| -------------------------------- | ---------------------------- | ------------------------------------------------------------------- |
+| GET /admin/users                 | `limit`                      | users with alert counts                                             |
+| GET /admin/alerts                | `userId`                     | that user's alerts                                                  |
+| GET /admin/events                | `category`, `limit`          | events, newest first                                                |
+| GET /admin/deliveries            | `status`, `channel`, `limit` | deliveries with event title, alert name, target name and user email |
+| POST /admin/deliveries/:id/retry | none                         | 200. 409 unless the status is `failed`, `dead` or `skipped`         |
+| GET /admin/sources               | none                         | sources with `enabled`                                              |
+| PATCH /admin/sources/:id         | `{ enabled }`                | 200                                                                 |
+| GET /admin/channels              | none                         | channels with `enabled`                                             |
+| PATCH /admin/channels/:id        | `{ enabled }`                | 200                                                                 |
+| GET /admin/metrics               | none                         | see below                                                           |
 
 Metrics cover rows created in the last 24 hours. The category keys come from `Category`. The channel keys come from the channel registry. Example with today's registry:
 
@@ -318,7 +318,14 @@ Metrics cover rows created in the last 24 hours. The category keys come from `Ca
 {
   "since": "2026-11-25T12:00:00Z",
   "eventsByCategory": { "news": 0, "market": 0, "disaster": 0 },
-  "deliveriesByStatus": { "pending": 0, "sending": 0, "sent": 0, "failed": 0, "dead": 0, "skipped": 0 },
+  "deliveriesByStatus": {
+    "pending": 0,
+    "sending": 0,
+    "sent": 0,
+    "failed": 0,
+    "dead": 0,
+    "skipped": 0
+  },
   "failureRateByChannel": { "email": 0, "slack": 0 }
 }
 ```
@@ -327,29 +334,29 @@ Failure rate for a channel is `dead / (sent + dead)`. It is 0 when both counts a
 
 ### Dev only (R17, R18)
 
-| Method and path | Body | Result |
-|---|---|---|
-| POST /dev/events | `EventInput` with optional `summary` (default empty) and `occurredAt` (default now) | 201. Uses `ingestEvent` with `source_id = 'dev'` and a random `external_id`. Returns the event and the number of deliveries created |
-| POST /dev/mock-slack/:hookId | `MockSlackMessage` | stores the message in memory. Returns 500 while fail mode is on, otherwise 200 |
-| GET /dev/mock-slack/messages | none | stored messages |
-| DELETE /dev/mock-slack/messages | none | 204, clears the store |
-| PUT /dev/mock-slack/mode | `{ fail: boolean }` | 200 |
+| Method and path                 | Body                                                                                | Result                                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| POST /dev/events                | `EventInput` with optional `summary` (default empty) and `occurredAt` (default now) | 201. Uses `ingestEvent` with `source_id = 'dev'` and a random `external_id`. Returns the event and the number of deliveries created |
+| POST /dev/mock-slack/:hookId    | `MockSlackMessage`                                                                  | stores the message in memory. Returns 500 while fail mode is on, otherwise 200                                                      |
+| GET /dev/mock-slack/messages    | none                                                                                | stored messages                                                                                                                     |
+| DELETE /dev/mock-slack/messages | none                                                                                | 204, clears the store                                                                                                               |
+| PUT /dev/mock-slack/mode        | `{ fail: boolean }`                                                                 | 200                                                                                                                                 |
 
 ## Web app
 
 Angular 22 with standalone components and signals, using the defaults that `@nx/angular` generates. UI components come from spartan-ng with Tailwind 4.
 
-| Route | Access | Content |
-|---|---|---|
-| /login, /register | public | forms |
-| /alerts | user | list with an enable switch per alert |
-| /alerts/new, /alerts/:id | user | form. The category select decides which filter fields appear. Targets are a multi-select |
-| /targets | user | list, create form built from the shared `channels` map, test button |
-| /admin/users | admin | user table. Selecting a user shows that user's alerts below the table |
-| /admin/events | admin | event table with a category filter |
-| /admin/deliveries | admin | table with status and channel filters and a retry button |
-| /admin/settings | admin | switches for sources and channels |
-| /admin/metrics | admin | three small cards or tables |
+| Route                    | Access | Content                                                                                  |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------- |
+| /login, /register        | public | forms                                                                                    |
+| /alerts                  | user   | list with an enable switch per alert                                                     |
+| /alerts/new, /alerts/:id | user   | form. The category select decides which filter fields appear. Targets are a multi-select |
+| /targets                 | user   | list, create form built from the shared `channels` map, test button                      |
+| /admin/users             | admin  | user table. Selecting a user shows that user's alerts below the table                    |
+| /admin/events            | admin  | event table with a category filter                                                       |
+| /admin/deliveries        | admin  | table with status and channel filters and a retry button                                 |
+| /admin/settings          | admin  | switches for sources and channels                                                        |
+| /admin/metrics           | admin  | three small cards or tables                                                              |
 
 - `authStore` loads `/api/auth/me` once and keeps the user in a signal.
 - `authGuard` and `adminGuard` protect the routes. The server checks access again on every request.
@@ -386,20 +393,20 @@ SEED_USER_PASSWORD=user-password-123
 
 ## Commands
 
-| Command | Does |
-|---|---|
+| Command         | Does                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run setup` | writes `.env` from `.env.example` with a random `JWT_SECRET` if `.env` is missing, runs `docker compose up -d`, applies migrations to both databases, seeds the two users |
-| `npm run dev` | serves the API and the web app with Nx |
-| `npm test` | runs unit and integration tests |
-| `npm run e2e` | runs the Playwright test against a running stack |
+| `npm run dev`   | serves the API and the web app with Nx                                                                                                                                    |
+| `npm test`      | runs unit and integration tests                                                                                                                                           |
+| `npm run e2e`   | runs the Playwright test against a running stack                                                                                                                          |
 
 ## Tests
 
-| Level | Tool | Covers |
-|---|---|---|
-| Unit | Vitest | `matchesFilters` with a table of cases per category, including `C++`, `boil` against keyword `oil`, and an earthquake without a magnitude. Also severity mapping, `computeBackoff`, the Slack URL allowlist with hostile URLs such as `https://hooks.slack.com.evil.com/`, `https://evil.com/?https://hooks.slack.com/services/` and `https://user@hooks.slack.com/services/x`, config rejection of the placeholder secret and of a prefix without a trailing slash, and password hash and verify |
-| Integration | Vitest against the `alerts_test` database. Plain routes use `app.inject()`. Delivery tests start the app with `listen({ port: 0 })` and point the Slack allowlist at that port, because `app.inject()` opens no socket for the worker to call | register and login, 404 on another user's alert, 403 for a user on admin routes, 400 for filters of the wrong category, inject event to delivery rows, rerunning the matcher creates no duplicate, worker sends to Mailpit and the mock receiver, fail mode leads to `failed` then `dead` with base backoff 0, an expired lease at max attempts becomes `dead` with no extra send, a stale result after a newer claim is dropped, a disabled channel creates `skipped` rows, admin retry |
-| End to end | Playwright | the demo user signs in, creates a Slack target with the mock URL and a market alert, an event is injected, the mock receiver gets the message, the admin sees the delivery as `sent` |
+| Level       | Tool                                                                                                                                                                                                                                          | Covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest                                                                                                                                                                                                                                        | `matchesFilters` with a table of cases per category, including `C++`, `boil` against keyword `oil`, and an earthquake without a magnitude. Also severity mapping, `computeBackoff`, the Slack URL allowlist with hostile URLs such as `https://hooks.slack.com.evil.com/`, `https://evil.com/?https://hooks.slack.com/services/` and `https://user@hooks.slack.com/services/x`, config rejection of the placeholder secret and of a prefix without a trailing slash, and password hash and verify |
+| Integration | Vitest against the `alerts_test` database. Plain routes use `app.inject()`. Delivery tests start the app with `listen({ port: 0 })` and point the Slack allowlist at that port, because `app.inject()` opens no socket for the worker to call | register and login, 404 on another user's alert, 403 for a user on admin routes, 400 for filters of the wrong category, inject event to delivery rows, rerunning the matcher creates no duplicate, worker sends to Mailpit and the mock receiver, fail mode leads to `failed` then `dead` with base backoff 0, an expired lease at max attempts becomes `dead` with no extra send, a stale result after a newer claim is dropped, a disabled channel creates `skipped` rows, admin retry          |
+| End to end  | Playwright                                                                                                                                                                                                                                    | the demo user signs in, creates a Slack target with the mock URL and a market alert, an event is injected, the mock receiver gets the message, the admin sees the delivery as `sent`                                                                                                                                                                                                                                                                                                              |
 
 Integration tests read Mailpit through its REST API at `http://localhost:8025/api/v1/messages`.
 

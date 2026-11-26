@@ -12,31 +12,31 @@ Turn a one-paragraph product brief into a working alerting app and record how th
 
 ## Deliverables
 
-| Deliverable | Path | Why it exists |
-|---|---|---|
-| Plan | `docs/plan.md` | Shows scope, order and the cut list |
-| Requirements | `docs/requirements.md` | Turns the vague brief into testable statements and lists assumptions |
-| Design | `docs/design.md` | Fixes the data model and API before any code, so subagents share one contract |
-| Decision log | `docs/decision-log.md` | Records each choice with the options and the reason |
-| AI review log | `docs/ai-review-log.md` | Records what AI output was checked, rejected or corrected |
-| Prompt history | `prompts/` | User prompts word for word, subagent prompts, chat exports |
-| Agent setup | `AGENTS.md`, `.github/agents/` | Shows how the agents were directed |
-| Code | `apps/`, `libs/`, `docker-compose.yml` | Evidence that the design works |
-| README | `README.md` | Run instructions, demo script, screenshots |
+| Deliverable    | Path                                   | Why it exists                                                                 |
+| -------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
+| Plan           | `docs/plan.md`                         | Shows scope, order and the cut list                                           |
+| Requirements   | `docs/requirements.md`                 | Turns the vague brief into testable statements and lists assumptions          |
+| Design         | `docs/design.md`                       | Fixes the data model and API before any code, so subagents share one contract |
+| Decision log   | `docs/decision-log.md`                 | Records each choice with the options and the reason                           |
+| AI review log  | `docs/ai-review-log.md`                | Records what AI output was checked, rejected or corrected                     |
+| Prompt history | `prompts/`                             | User prompts word for word, subagent prompts, chat exports                    |
+| Agent setup    | `AGENTS.md`, `.github/agents/`         | Shows how the agents were directed                                            |
+| Code           | `apps/`, `libs/`, `docker-compose.yml` | Evidence that the design works                                                |
+| README         | `README.md`                            | Run instructions, demo script, screenshots                                    |
 
 ## Milestones
 
 Each milestone ends with a commit that follows the Angular convention in `AGENTS.md`.
 
-| ID | Milestone | Budget | Done when |
-|---|---|---|---|
-| M0 | Process docs, agent setup, prompt log | 10 min | Files committed |
-| M1 | Design doc, reviewed by both reviewer agents | 15 min | The user approves the data model and API list |
-| M2 | Nx workspace, Docker Compose, shared library | 15 min | `nx run-many -t build` passes and the containers start |
-| M3 | Backend: schema, seed, auth, CRUD, generators, matcher, worker, both channels, unit tests | 40 min | An injected event produces an email in Mailpit and a message in the mock Slack receiver |
-| M4 | Frontend: user pages and admin pages | 35 min | The demo script in the README works by hand |
-| M5 | API integration tests and one Playwright smoke test | 15 min | All tests pass |
-| M6 | README, screenshots, final review log, chat export | 15 min | Submission is ready to push |
+| ID  | Milestone                                                                                 | Budget | Done when                                                                               |
+| --- | ----------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| M0  | Process docs, agent setup, prompt log                                                     | 10 min | Files committed                                                                         |
+| M1  | Design doc, reviewed by both reviewer agents                                              | 15 min | The user approves the data model and API list                                           |
+| M2  | Nx workspace, Docker Compose, shared library                                              | 15 min | `nx run-many -t build` passes and the containers start                                  |
+| M3  | Backend: schema, seed, auth, CRUD, generators, matcher, worker, both channels, unit tests | 40 min | An injected event produces an email in Mailpit and a message in the mock Slack receiver |
+| M4  | Frontend: user pages and admin pages                                                      | 35 min | The demo script in the README works by hand                                             |
+| M5  | API integration tests and one Playwright smoke test                                       | 15 min | All tests pass                                                                          |
+| M6  | README, screenshots, final review log, chat export                                        | 15 min | Submission is ready to push                                                             |
 
 ## Order and reasons
 

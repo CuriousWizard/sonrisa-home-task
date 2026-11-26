@@ -8,16 +8,16 @@ An alerting app. Users create alert rules for world events in three categories: 
 
 The repository is an interview submission. Reviewers grade the process, so the process artifacts matter as much as the code.
 
-| File | Purpose |
-|---|---|
-| `docs/plan.md` | Milestones, order, cut list |
-| `docs/requirements.md` | How the brief was interpreted, assumptions, out of scope |
-| `docs/design.md` | Architecture, data model, API |
-| `docs/decision-log.md` | Decisions with options and reasons |
-| `docs/ai-review-log.md` | AI output that was checked, rejected or corrected |
-| `docs/reviews/` | Reviewer replies, unedited |
-| `prompts/prompt-log.md` | User prompts, word for word |
-| `prompts/subagents/` | Prompts the orchestrator sent to subagents |
+| File                    | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| `docs/plan.md`          | Milestones, order, cut list                              |
+| `docs/requirements.md`  | How the brief was interpreted, assumptions, out of scope |
+| `docs/design.md`        | Architecture, data model, API                            |
+| `docs/decision-log.md`  | Decisions with options and reasons                       |
+| `docs/ai-review-log.md` | AI output that was checked, rejected or corrected        |
+| `docs/reviews/`         | Reviewer replies, unedited                               |
+| `prompts/prompt-log.md` | User prompts, word for word                              |
+| `prompts/subagents/`    | Prompts the orchestrator sent to subagents               |
 
 Read `docs/requirements.md` and `docs/design.md` before changing code.
 
@@ -32,13 +32,13 @@ Read `docs/requirements.md` and `docs/design.md` before changing code.
 
 ## Agent roles
 
-| Role | Who | Does |
-|---|---|---|
-| Orchestrator | Main chat agent | Plans, writes subagent prompts, verifies output, reconciles reviews, commits |
-| Implementer | Default subagent | Writes code for one scoped task from a saved prompt |
-| Explorer | `Explore` subagent | Read-only lookups |
-| Reviewer A | `reviewer-opus` on Claude Opus 5.5 | Independent read-only review |
-| Reviewer B | `reviewer-gpt` on GPT-6.2 Sol | Independent read-only review |
+| Role         | Who                                | Does                                                                         |
+| ------------ | ---------------------------------- | ---------------------------------------------------------------------------- |
+| Orchestrator | Main chat agent                    | Plans, writes subagent prompts, verifies output, reconciles reviews, commits |
+| Implementer  | Default subagent                   | Writes code for one scoped task from a saved prompt                          |
+| Explorer     | `Explore` subagent                 | Read-only lookups                                                            |
+| Reviewer A   | `reviewer-opus` on Claude Opus 5.5 | Independent read-only review                                                 |
+| Reviewer B   | `reviewer-gpt` on GPT-6.2 Sol      | Independent read-only review                                                 |
 
 The two reviewer files in `.github/agents/` share the same body. Only the model differs. Keep the bodies identical so the reviews are comparable.
 

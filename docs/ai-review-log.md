@@ -62,36 +62,36 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
   - `node -e` with three regexes. `\bC\+\+\b` does not match "new C++ release". The lookaround version matches it. Keyword `oil` with lookarounds does not match "boil".
 - Result:
 
-| Topic | Opus | GPT | Outcome | Reason |
-|---|---|---|---|---|
-| A sixth send after the lease expires at max attempts | F2 | F1 | accepted | The claim now requires `attempts < max`. Expired rows at max become `dead`. |
-| Lease shorter than the send, stale result overwrites a newer claim | F1 | F1 | accepted | Send deadlines of 5 and 10 seconds, concurrent sends, fenced result update, no overlapping polls |
-| Delivery foreign keys on delete, column defaults | F3 | F7 | accepted | Cascade on delete, with the history loss listed in known limits. `attempts` and `next_attempt_at` get defaults. |
-| `category` inside `filters` and `data` | F4 | F3 | accepted | The outer DTO is now discriminated on `category`. See V-007. |
-| Seed rows break N3 | F5 | F4 | accepted | Rows are inserted from the registries at startup. |
-| `source_id = 'dev'` and foreign keys | F6 | none | accepted | `events.source_id` has no foreign key. |
-| Auth rate limit gives 429 in tests, out-of-scope wording | F7 | F9 | accepted | `AUTH_RATE_LIMIT_MAX`. The out-of-scope item now says notification rate limiting. |
-| Placeholder `JWT_SECRET` passes the length check | F8 | F5 | accepted | `config.ts` rejects it. `npm run setup` writes a random secret. |
-| Allowlist prefixes are not validated | F9 | F6 | accepted | Trailing slash required, no user or password, `http:` only outside production |
-| Skipped rows spend an attempt and cannot be retried | F10 | F2 | accepted | D-024 |
-| A `created_at` cursor drops rows with the same timestamp | F11 | F7 | accepted | D-023 removes cursors. |
-| Fastify parses `text/plain` by default | F12 | none | accepted | The app removes the parser. |
-| `\b` fails for `C++` | F13 | none | accepted | Unicode lookarounds, checked with `node -e` |
-| No driver or run commands | F14 | F8 | accepted | D-022 and a Commands section |
-| Requirements wording and unslop rules | F15 | none | accepted | Reworded R5, the Delivery term and A2 |
-| Test send while the channel is disabled | none | F2 | accepted | 409 |
-| Admin retry is not atomic | none | F2 | accepted | One conditional `UPDATE ... RETURNING` |
-| Earthquake without a magnitude | none | F3 | accepted | It does not match when `minMagnitude` is set. |
-| Cookie path, algorithm pinning, role from the token | none | F5 | accepted | `Path=/`, no `Domain`, HS256 only, role read from the database |
-| `Origin` header check on mutations | none | F5 | deferred | Local only, and `SameSite=Strict` covers cross-site requests. Listed in known limits. |
-| Logout does not revoke the token | none | F5 | accepted as a known limit | Revocation needs a token store. The expiry is 8 hours. |
-| Webhook URL can leak through error messages, non-2xx handling | none | F6 | accepted | Errors carry no URL. Any status outside 200 to 299 is a failure. |
-| `app.inject()` opens no socket for the worker to call | none | F8 | accepted | Delivery tests use `listen({ port: 0 })`. |
-| Random delay per poll, injection defaults, mock body schema | none | F8 | accepted | Written into the design |
-| Cut `PATCH /alerts` | F16 | none | rejected | One small route. The enable switch in the alert list needs it. |
-| Truncate tables instead of a test database | F16 | none | rejected | Truncating would wipe the developer's demo data. One init SQL line creates `alerts_test`. |
-| Remove auth rate limiting | F16 | none | rejected | One plugin registration. It covers OWASP A07. |
-| Auto-refresh, expandable users view | F16 | F10 | accepted | Refresh button only. Selecting a user shows that user's alerts. |
+| Topic                                                              | Opus | GPT  | Outcome                   | Reason                                                                                                          |
+| ------------------------------------------------------------------ | ---- | ---- | ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| A sixth send after the lease expires at max attempts               | F2   | F1   | accepted                  | The claim now requires `attempts < max`. Expired rows at max become `dead`.                                     |
+| Lease shorter than the send, stale result overwrites a newer claim | F1   | F1   | accepted                  | Send deadlines of 5 and 10 seconds, concurrent sends, fenced result update, no overlapping polls                |
+| Delivery foreign keys on delete, column defaults                   | F3   | F7   | accepted                  | Cascade on delete, with the history loss listed in known limits. `attempts` and `next_attempt_at` get defaults. |
+| `category` inside `filters` and `data`                             | F4   | F3   | accepted                  | The outer DTO is now discriminated on `category`. See V-007.                                                    |
+| Seed rows break N3                                                 | F5   | F4   | accepted                  | Rows are inserted from the registries at startup.                                                               |
+| `source_id = 'dev'` and foreign keys                               | F6   | none | accepted                  | `events.source_id` has no foreign key.                                                                          |
+| Auth rate limit gives 429 in tests, out-of-scope wording           | F7   | F9   | accepted                  | `AUTH_RATE_LIMIT_MAX`. The out-of-scope item now says notification rate limiting.                               |
+| Placeholder `JWT_SECRET` passes the length check                   | F8   | F5   | accepted                  | `config.ts` rejects it. `npm run setup` writes a random secret.                                                 |
+| Allowlist prefixes are not validated                               | F9   | F6   | accepted                  | Trailing slash required, no user or password, `http:` only outside production                                   |
+| Skipped rows spend an attempt and cannot be retried                | F10  | F2   | accepted                  | D-024                                                                                                           |
+| A `created_at` cursor drops rows with the same timestamp           | F11  | F7   | accepted                  | D-023 removes cursors.                                                                                          |
+| Fastify parses `text/plain` by default                             | F12  | none | accepted                  | The app removes the parser.                                                                                     |
+| `\b` fails for `C++`                                               | F13  | none | accepted                  | Unicode lookarounds, checked with `node -e`                                                                     |
+| No driver or run commands                                          | F14  | F8   | accepted                  | D-022 and a Commands section                                                                                    |
+| Requirements wording and unslop rules                              | F15  | none | accepted                  | Reworded R5, the Delivery term and A2                                                                           |
+| Test send while the channel is disabled                            | none | F2   | accepted                  | 409                                                                                                             |
+| Admin retry is not atomic                                          | none | F2   | accepted                  | One conditional `UPDATE ... RETURNING`                                                                          |
+| Earthquake without a magnitude                                     | none | F3   | accepted                  | It does not match when `minMagnitude` is set.                                                                   |
+| Cookie path, algorithm pinning, role from the token                | none | F5   | accepted                  | `Path=/`, no `Domain`, HS256 only, role read from the database                                                  |
+| `Origin` header check on mutations                                 | none | F5   | deferred                  | Local only, and `SameSite=Strict` covers cross-site requests. Listed in known limits.                           |
+| Logout does not revoke the token                                   | none | F5   | accepted as a known limit | Revocation needs a token store. The expiry is 8 hours.                                                          |
+| Webhook URL can leak through error messages, non-2xx handling      | none | F6   | accepted                  | Errors carry no URL. Any status outside 200 to 299 is a failure.                                                |
+| `app.inject()` opens no socket for the worker to call              | none | F8   | accepted                  | Delivery tests use `listen({ port: 0 })`.                                                                       |
+| Random delay per poll, injection defaults, mock body schema        | none | F8   | accepted                  | Written into the design                                                                                         |
+| Cut `PATCH /alerts`                                                | F16  | none | rejected                  | One small route. The enable switch in the alert list needs it.                                                  |
+| Truncate tables instead of a test database                         | F16  | none | rejected                  | Truncating would wipe the developer's demo data. One init SQL line creates `alerts_test`.                       |
+| Remove auth rate limiting                                          | F16  | none | rejected                  | One plugin registration. It covers OWASP A07.                                                                   |
+| Auto-refresh, expandable users view                                | F16  | F10  | accepted                  | Refresh button only. Selecting a user shows that user's alerts.                                                 |
 
 - Comparison: reviewer-opus ran its own `node` tests against Node 26 and read the Nodemailer docs for default timeouts. reviewer-gpt could not reach the npm registry and used the local cache. It still found four issues that reviewer-opus missed: the `app.inject()` socket problem, secrets in error messages, the test route with a disabled channel, and the non-atomic retry. Neither review contained a false claim that the orchestrator could find.
 - Status: corrected. The design diff after commit `28355cf` shows every change.

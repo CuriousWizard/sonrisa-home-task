@@ -8,15 +8,15 @@ No product manager is available, so the user acts as the product owner. Answers 
 
 ## Terms
 
-| Term | Meaning |
-|---|---|
-| Event | One thing that happened in the world, such as an earthquake or a 7% drop in a stock price. It has a category, a severity from 1 to 5, and category-specific data. |
-| Category | `news`, `market` or `disaster` |
-| Source | A component that produces events for one category. On day one, every source is a simulator. |
-| Alert | A rule owned by a user: a category, typed filters, a minimum severity, and one or more targets |
-| Target | A destination owned by a user, such as an email address or a Slack webhook URL |
-| Channel | A delivery mechanism, `email` or `slack`. Each target uses one channel. |
-| Delivery | One row that tracks sending one event to one target because of one alert, across all attempts |
+| Term     | Meaning                                                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Event    | One thing that happened in the world, such as an earthquake or a 7% drop in a stock price. It has a category, a severity from 1 to 5, and category-specific data. |
+| Category | `news`, `market` or `disaster`                                                                                                                                    |
+| Source   | A component that produces events for one category. On day one, every source is a simulator.                                                                       |
+| Alert    | A rule owned by a user: a category, typed filters, a minimum severity, and one or more targets                                                                    |
+| Target   | A destination owned by a user, such as an email address or a Slack webhook URL                                                                                    |
+| Channel  | A delivery mechanism, `email` or `slack`. Each target uses one channel.                                                                                           |
+| Delivery | One row that tracks sending one event to one target because of one alert, across all attempts                                                                     |
 
 "Something important" means an event that matches an alert's filters and has a severity at or above the alert's minimum severity.
 
