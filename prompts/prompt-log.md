@@ -88,8 +88,28 @@ Context for the numbered answers. The agent had asked:
 
 The numbers answer the agent's list of next steps: review the design, install Docker, export the chat, check the reviewer models, push.
 
+## 005 Answers during M2
+
+The agent asked the user to add their account to the `docker` group.
+
+```text
+I've already did that, and when I use the terminal I don't need sudo for docker
+```
+
+The agent's shell still had no access, so it asked the user to run `npm run setup` and paste the output.
+
+```text
+davidt@HUERDWN110468:~/project/sonrisa-home-task$ npm run setup && docker compose ps && docker compose exec -T postgres psql -U alerts -lqt | grep alerts_test  > @alerts/source@0.0.0 setup > node scripts/setup.mjs  Created .env from .env.example with a random JWT_SECRET. Starting Postgres and Mailpit with docker compose... [+] up 19/20  ✔ Image postgres:18-alpine               Pulled                                                                                                                                                             9.9s  ✔ Image axllent/mailpit                  Pulled                                                                                                                                                             8.0s  ✔ Network sonrisa-home-task_default      Created                                                                                                                                                            0.1s  ✔ Volume sonrisa-home-task_postgres-data Created                                                                                                                                                            0.0s  ✔ Container sonrisa-home-task-postgres-1 Healthy                                                                                                                                                            6.7s  ✔ Container sonrisa-home-task-mailpit-1  Healthy                                                                                                                                                            3.2s Postgres and Mailpit are healthy. NAME                           IMAGE                COMMAND                  SERVICE    CREATED         STATUS                   PORTS sonrisa-home-task-mailpit-1    axllent/mailpit      "/mailpit"               mailpit    7 seconds ago   Up 5 seconds (healthy)   127.0.0.1:1025->1025/tcp, 127.0.0.1:8025->8025/tcp, 1110/tcp sonrisa-home-task-postgres-1   postgres:18-alpine   "docker-entrypoint.s…"   postgres   7 seconds ago   Up 4 seconds (healthy)   127.0.0.1:5432->5432/tcp  alerts_test | alerts | UTF8     | libc            | en_US.utf8 | en_US.utf8 |        |           | davidt@HUERDWN110468:~/project/sonrisa-home-task$
+```
+
+## 006 Stop after M2
+
+```text
+Stop when you finished with M2
+```
+
 ## Chat exports
 
-| File | Covers |
-| --- | --- |
+| File                           | Covers                                   |
+| ------------------------------ | ---------------------------------------- |
 | `prompts/exports/M1-chat.json` | Prompts 001 to 003, milestones M0 and M1 |

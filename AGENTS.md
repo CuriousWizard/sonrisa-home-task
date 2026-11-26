@@ -24,11 +24,22 @@ Read `docs/requirements.md` and `docs/design.md` before changing code.
 ## Stack
 
 - Node.js 26 LTS, TypeScript, npm
-- Nx 24 monorepo: `apps/api`, `apps/web`, `libs/shared`
+- Nx 24 monorepo: `apps/api`, `apps/web`, `apps/web-e2e`, `libs/shared`, `libs/ui`
 - Backend: Fastify 5, Drizzle ORM, PostgreSQL 18
 - Frontend: Angular 22, spartan-ng with Tailwind 4
 - Email: Nodemailer to Mailpit. Slack: incoming webhook, with a mock receiver in development
 - Docker Compose runs Postgres and Mailpit
+
+## Build and test
+
+| Command | Does |
+| --- | --- |
+| `npm run setup` | Creates `.env` with a random secret if it is missing, starts Postgres and Mailpit |
+| `npm run dev` | Serves the API on port 3000 and the web app on port 4200 |
+| `npx nx run-many -t build lint test` | Builds, lints and tests every project. Run it before reporting work as done |
+| `npm run e2e` | Runs the Playwright tests |
+
+`npm run setup` needs access to the Docker socket. An agent shell that started before the user joined the `docker` group gets "permission denied". In that case, ask the user to run the command.
 
 ## Agent roles
 

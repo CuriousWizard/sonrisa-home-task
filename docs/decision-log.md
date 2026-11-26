@@ -150,3 +150,21 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: only the user pushes, agents push when asked.
 - Decided by: user, in prompt 004.
 - Rule: the orchestrator pushes only when the current prompt asks for it. It never force-pushes.
+
+## D-026 spartan-ng components live in `libs/ui`
+
+- Options: components inside `apps/web`, a separate library.
+- Decided by: implementer subagent, through the spartan CLI default. The orchestrator accepted it.
+- Reason: the CLI generates each component as an Nx library and maps it to an import path such as `@spartan-ng/helm/button` in `tsconfig.base.json`. Moving the files would break the CLI for the next component.
+
+## D-027 Strict TypeScript in every project
+
+- Options: strict mode per project, strict mode in the base config.
+- Decided by: orchestrator, after reviewer-opus found that the API compiled with `strict: false`.
+- Reason: without strict mode, zod infers required fields as optional, so the API would accept code that skips required config. The base config now sets `strict: true`. The API targets ES2024 with no DOM types.
+
+## D-028 API bootstrap is rewritten in M3
+
+- Options: replace the generated `@fastify/autoload` bootstrap in M2, replace it in M3.
+- Decided by: orchestrator. Both reviewers asked for `buildApp(config)` as in the design.
+- Reason: M3 writes the config loader and every route, so it rewrites `app.ts` anyway. Doing it in M2 would mean writing it twice. The M3 prompt must say to remove `@fastify/autoload` and `@fastify/sensible`.

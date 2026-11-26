@@ -110,3 +110,60 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Check: before committing `prompts/exports/M1-chat.json`, the orchestrator scanned it for GitHub tokens, OpenAI-style keys, Slack tokens, AWS keys and Slack webhook URLs.
 - Result: the only matches were the fake test URL `https://user:pw@hooks.slack.com/services/T/B/C` that the reviewers used in their checks. No real secret was found.
 - Status: accepted.
+
+## V-011 Implementer runs that returned no report
+
+- AI output: the M2 implementer for prompt 002 stopped partway and returned an empty message. The first follow-up, prompt 003, also returned an empty message.
+- Check: the orchestrator did not assume either run had worked. It read `git status`, the new files and `package.json`, then ran build, lint and test itself.
+- Result:
+  - After prompt 002: the Nx workspace, the four projects, Tailwind 4 and the spartan theme existed. The spartan button, the health route, the shared schemas, Docker Compose, the env files, the setup script and the root scripts were missing.
+  - The orchestrator split the remaining work into prompts 003 and 004.
+  - After prompt 003, every file it asked for existed. Build, lint and test passed, `/api/health` returned `{"status":"ok"}`, and the built CSS held the Tailwind classes from the home page.
+  - Prompt 004 and prompt 006 returned full reports. Each now ends with "Your last message must be the report".
+- Status: corrected.
+
+## V-012 Unknown dependency `cn`
+
+- AI output: the implementer added a runtime dependency named `cn`. The name is short and generic, which is a common pattern for typosquatted packages.
+- Check: `npm view cn` and a search of `node_modules/@spartan-ng/cli` for the name.
+- Result: `cn` 0.5.2 is published by shadcn from `github.com/shadcn-ui/cn`, and the spartan CLI references it. reviewer-opus also found it pinned as `CN_VERSION` in the CLI. Both reviewers reached the same result on their own.
+- Status: accepted.
+
+## V-013 Docker access from the agent shell
+
+- Check: `npm run setup` failed with "permission denied" on the Docker socket. `id -nG` showed that the agent's shell had no `docker` group. `getent group docker` showed that the user account was a member.
+- Result: the VS Code server started before the user joined the group, so the agent's shells do not have it. `sg` and `newgrp` are not installed. The user ran the setup in their own terminal and pasted the output (prompt log 005). The orchestrator then checked from its side over TCP: Mailpit `/api/v1/messages` returned 200, Postgres accepted a connection on 5432, `.env` had mode 600 with no placeholder secret, and git ignored it.
+- Status: closed. `AGENTS.md` now describes this case.
+
+## V-014 M2 review by two models
+
+- AI output: two reviews of the M2 working tree. The replies are stored word for word in `docs/reviews/m2-opus.md` and `docs/reviews/m2-gpt.md`. The prompt is `prompts/subagents/005-review-m2.md`.
+- Check: the orchestrator reran reviewer-opus F1 with `tsc --showConfig`. The API had `strict: false` and `target: es6`, while `apps/web` and `libs/shared` had `strict: true`. The finding holds.
+- Result:
+
+| Topic | Opus | GPT | Outcome | Reason |
+| --- | --- | --- | --- | --- |
+| API compiles without strict mode | F1 | none | accepted | D-027. Confirmed with `tsc --showConfig`. |
+| Event data and filter schemas strip unknown keys | F2 | M2-01 | accepted | `z.strictObject`, with two tests that fail on revert |
+| Three Nx plugins on caret ranges | F3 | M2-06 | accepted | Pinned to 24.0.7 |
+| Generated autoload bootstrap instead of `buildApp(config)` | F4 | M2-05 | deferred to M3 | D-028 |
+| No route params schemas | F5 | M2-02 | accepted | `IdParam`, `SourceIdParam`, `ChannelIdParam`, `HookIdParam` |
+| `ChannelField.key` typed as `string` | F6 | none | deferred to M4 | M4 builds the form that reads the keys |
+| `enabled` default turns an alert back on through PUT | F7 | none | accepted | `enabled` is required, with a test |
+| Leftover deploy targets in `apps/api/project.json` | F8 | none | rejected | Generator defaults with no effect on dev or tests |
+| Firefox and WebKit in Playwright | F9 | none | accepted | Chromium only |
+| Mailpit image without a tag | F10 | none | accepted | `axllent/mailpit:v1.34.0`, read from the Docker Hub tag list |
+| `npm ls` reports invalid nested dev packages | F11 | none | deferred | Dev-only, nested under `@spartan-ng/cli`. The top-level tree is valid. |
+| Duplicate `targetIds` rejected without a rule in the design | none | M2-03 | accepted | The design now states the rule, because `alert_targets` has a primary key on the pair. |
+| Playwright `serve-static` has no `/api` proxy | none | M2-04 | deferred to M5 | M5 sets up the e2e server |
+
+- Fixes: prompt `006-m2-review-fixes.md`. The orchestrator reran `nx run-many -t build lint test --skip-nx-cache` after the fixes. All 6 projects passed. `tsc --showConfig` shows `strict: true` and `target: es2024` for the API. The shared tests went from 19 to 26.
+- Comparison: reviewer-opus found 11 issues, including the strict-mode gap, which reviewer-gpt missed. reviewer-gpt found the e2e proxy gap and the undocumented uniqueness rule, which reviewer-opus missed. Both checked `cn` and the Postgres 18 volume path on their own and agreed. Neither could reach Docker. reviewer-opus reported that the shared terminal twice returned another process's output, and it reran those commands with markers.
+- Status: corrected. No second review round. The fixes are small, and the orchestrator checked each one.
+
+## V-015 Review copies that were not word for word
+
+- AI output: the orchestrator's own files `docs/reviews/m1-design-*.md`, and its first draft of the M2 files. They were labelled "unedited", but the orchestrator had paraphrased the replies before saving them. The finding IDs and the substance matched. The wording did not: some lines were shortened and used arrows, and some words were changed.
+- Check: while saving the M2 reviews, the orchestrator compared the saved text with the replies in its context.
+- Result: all four review files were rewritten with the exact replies. The rule in `AGENTS.md` already exempted reviewer replies from the writing rules. The orchestrator had applied those rules anyway.
+- Status: corrected.
