@@ -74,6 +74,6 @@ Apply `.agents/skills/unslop/SKILL.md` to all prose in `docs/`, `prompts/`, `REA
 ## Code rules
 
 - Keep secrets out of git. Put defaults in `.env.example`.
-- The API rejects Slack webhook URLs whose host is not on the allowlist in `SLACK_WEBHOOK_ALLOWED_HOSTS`.
+- The API rejects Slack webhook URLs that do not start with a prefix listed in `SLACK_WEBHOOK_ALLOWED_PREFIXES`.
 - Routes under `/dev` are registered only when `NODE_ENV` is not `production`.
 - Validate every request body with the zod schemas in `libs/shared`.

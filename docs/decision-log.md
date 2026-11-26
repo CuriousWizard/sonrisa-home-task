@@ -38,7 +38,7 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: incoming webhook per target, Slack app with a bot token, mock only.
 - Decided by: user chose incoming webhooks. The user has no Slack workspace, so the orchestrator added a mock receiver.
 - Reason: a webhook URL is the smallest real Slack integration. The mock receiver can be set to fail, which shows retries in the demo.
-- Consequence: the API sends HTTP requests to URLs that users type in, which is a server-side request forgery risk. The API accepts only HTTPS URLs on allowlisted hosts (requirement N4).
+- Consequence: the API sends HTTP requests to URLs that users type in, which is a server-side request forgery risk. The API accepts only URLs that start with an allowlisted prefix (requirement N4).
 
 ## D-007 Fastify for the API
 
@@ -83,3 +83,39 @@ Each entry records what was decided, which options were considered, who decided,
 
 - Decided by: user accepted the orchestrator's proposal.
 - Order: metrics page, then the Playwright test, then the admin switches for sources and channels.
+
+## D-015 Passwords hashed with scrypt from `node:crypto`
+
+- Options: argon2, bcrypt, bcryptjs, scrypt from `node:crypto`.
+- Decided by: orchestrator.
+- Reason: argon2 and bcrypt need native builds, which can break on a new Node major. bcryptjs is slow pure JavaScript. scrypt is built into Node and is memory-hard.
+
+## D-016 JWT in an HttpOnly cookie, same origin through the dev proxy
+
+- Options: bearer token in `localStorage`, HttpOnly cookie.
+- Decided by: orchestrator.
+- Reason: a script injected through XSS cannot read an HttpOnly cookie. The Angular dev proxy serves the API on the same origin, so `SameSite=Strict` works and CORS is not needed.
+
+## D-017 Filter matching in TypeScript
+
+- Options: translate filters to SQL, load candidate alerts and match in TypeScript.
+- Decided by: orchestrator.
+- Reason: one pure function holds every rule and gets table-driven unit tests. SQL narrows by category, enabled flag and minimum severity first. The limit on alert count is listed in `docs/design.md`.
+
+## D-018 At-least-once delivery with a 60 second lease
+
+- Options: at most once, at least once with a lease.
+- Decided by: orchestrator.
+- Reason: a lost alert is worse than a repeated one. The lease lets another worker pick up a row after a crash.
+
+## D-019 Slack URL allowlist by prefix
+
+- Options: host allowlist, URL prefix allowlist, resolve DNS and block private IP ranges.
+- Decided by: orchestrator.
+- Reason: a prefix such as `https://hooks.slack.com/services/` fixes scheme, host and path in one rule. Development adds the mock receiver's prefix. Redirects are refused, so an allowed URL cannot forward the request elsewhere.
+
+## D-020 Channel descriptors drive the target form
+
+- Options: one Angular form component per channel, a generic form built from a field list in `libs/shared`.
+- Decided by: orchestrator.
+- Reason: requirement N3 asks that a new channel need no changes outside its own module. A field list keeps the web app out of that change.

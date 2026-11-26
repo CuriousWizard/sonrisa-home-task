@@ -59,8 +59,8 @@ No product manager is available, so the user acts as the product owner. Answers 
 
 - N1. One command starts the stack locally after `docker compose up -d`. A seed script creates one admin and one demo user.
 - N2. Passwords are stored as salted hashes. Admin routes check the role on the server.
-- N3. Adding a channel needs one new module that implements the channel interface, one config schema, and one registry entry. The same applies to adding a source.
-- N4. Slack webhook URLs must use HTTPS and a host from an allowlist. Development adds the mock receiver's host to the allowlist.
+- N3. Adding a channel needs one new module that implements the channel interface, one config schema with a form descriptor, and one registry entry. Adding a source needs one module and one registry entry.
+- N4. A Slack webhook URL must start with a prefix from an allowlist. The default allowlist is `https://hooks.slack.com/services/`. Development adds the mock receiver's prefix.
 - N5. Unit tests cover filter matching, severity checks and backoff timing. Integration tests cover the API. One Playwright test covers sign-in, alert creation and delivery.
 
 ## Assumptions
