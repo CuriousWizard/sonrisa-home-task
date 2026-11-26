@@ -47,15 +47,17 @@ sequenceDiagram
   I->>I: matchesFilters(event, alert) for each alert
   I->>DB: insert deliveries ... on conflict do nothing
   I->>DB: COMMIT
-  loop every WORKER_POLL_MS
-    W->>DB: claim up to 10 due rows with FOR UPDATE SKIP LOCKED
-    W->>C: send(config, message)
+  loop setTimeout chain, WORKER_POLL_MS after the previous batch ends
+    W->>DB: one UPDATE claims up to 10 due rows (SKIP LOCKED) and commits
+    par each claimed row
+      W->>C: send(config, message), with a deadline below the lease
+    end
     alt success
-      W->>DB: status = sent
-    else error, attempts < max
-      W->>DB: status = failed, next_attempt_at = now + backoff
-    else error, attempts = max
-      W->>DB: status = dead
+      W->>DB: status = sent, only if the claim is still ours
+    else error and attempts < max
+      W->>DB: status = failed, next_attempt_at = now + backoff, only if the claim is still ours
+    else error and attempts >= max
+      W->>DB: status = dead, only if the claim is still ours
     end
   end
 ```
@@ -69,8 +71,8 @@ apps/
   api/src/
     main.ts              starts the server, scheduler and worker
     app.ts               buildApp(config) for tests and main
-    config.ts            reads env with zod
-    db/                  schema.ts, client.ts, migrations/, seed.ts
+    config.ts            reads env with zod and rejects unsafe values
+    db/                  schema.ts, client.ts (pg driver), migrations/ (drizzle-kit), seed.ts
     auth/                routes, password.ts, plugin with requireUser and requireAdmin
     targets/             routes, service
     alerts/              routes, service
@@ -90,9 +92,15 @@ apps/
   web-e2e/               Playwright
 libs/
   shared/src/            zod schemas, types, channel descriptors
+scripts/
+  setup.mjs              writes .env with a random JWT_SECRET, starts Docker Compose, migrates, seeds
+docker/
+  postgres-init.sql      creates the alerts_test database
 docker-compose.yml
 .env.example
 ```
+
+Database access uses `drizzle-orm/node-postgres` with the `pg` driver. Migrations are generated and applied with `drizzle-kit`.
 
 ## Shared library
 
@@ -101,18 +109,21 @@ docker-compose.yml
 - `Category = 'news' | 'market' | 'disaster'`
 - `Region = 'africa' | 'asia' | 'europe' | 'north-america' | 'south-america' | 'oceania'`
 - `Severity`: integer from 1 to 5
-- `EventData`: a discriminated union on `category`
+- Event data per category. These objects carry no `category` field.
   - news: `{}`. The text is in `title` and `summary`.
   - market: `{ symbol: string, price: number, changePct: number }`. `changePct` is signed.
   - disaster: `{ type: 'earthquake' | 'flood' | 'storm' | 'wildfire', region: Region, magnitude?: number }`
-- `AlertFilters`: a discriminated union on `category`
+- Alert filters per category. These objects carry no `category` field.
   - news: `{ keywords: string[] }`
   - market: `{ symbols: string[], direction: 'up' | 'down' | 'any', minChangePct: number }`
   - disaster: `{ types: DisasterType[], regions: Region[], minMagnitude?: number }`
-- `TargetConfig` per channel
+- `EventInput` is a discriminated union on the top-level `category`. Each branch pairs one category with its `data` schema, so `category: 'market'` with disaster data fails validation.
+- `AlertInput` is a discriminated union on the top-level `category` in the same way. Each branch pairs one category with its `filters` schema. The shared fields are `name`, `minSeverity`, `targetIds` and `enabled`.
+- `TargetInput` is a discriminated union on `channel`. Each branch pairs one channel with its `config` schema.
   - email: `{ address: string }`
   - slack: `{ webhookUrl: string }`
-- `channelDescriptors`: for each channel, a label and a list of form fields `{ key, label, inputType }`. The web app builds the target form from this list, so a new channel needs no new form component.
+- `channels`: a map from channel id to `{ configSchema, label, fields }`, where `fields` is a list of `{ key, label, inputType }`. The channel id list, `TargetInput` and the web app's target form are all built from this map, so a new channel needs no new form component.
+- `MockSlackMessage`: `{ text: string }`, at most 10 000 characters.
 - Request and response DTOs for every route below.
 
 ## Data model
@@ -125,12 +136,16 @@ All ids are UUIDs except `sources.id` and `channels.id`. All timestamps are `tim
 | `targets` | id, user_id, name, channel, config jsonb, created_at | user_id references users on delete cascade |
 | `alerts` | id, user_id, name, category, filters jsonb, min_severity, enabled, created_at, updated_at | user_id references users on delete cascade. min_severity between 1 and 5 |
 | `alert_targets` | alert_id, target_id | primary key on both. Both reference their tables on delete cascade |
-| `events` | id, source_id, external_id, category, title, summary, severity, data jsonb, occurred_at, created_at | unique (source_id, external_id). Index (category, created_at desc) |
-| `sources` | id, category, enabled, updated_at | Seeded rows: `news-sim`, `market-sim`, `disaster-sim` |
-| `channels` | id, enabled, updated_at | Seeded rows: `email`, `slack` |
-| `deliveries` | id, alert_id, event_id, target_id, channel, status, attempts, next_attempt_at, last_error, sent_at, created_at, updated_at | unique (alert_id, event_id, target_id) for R9. Index (status, next_attempt_at) |
+| `events` | id, source_id, external_id, category, title, summary, severity, data jsonb, occurred_at, created_at | unique (source_id, external_id). Index (category, created_at desc). `source_id` has no foreign key, so injected events can use `dev` |
+| `sources` | id, category, enabled, updated_at | Rows come from the source registry at startup |
+| `channels` | id, enabled, updated_at | Rows come from the channel registry at startup |
+| `deliveries` | id, alert_id, event_id, target_id, channel, status, attempts, next_attempt_at, last_error, sent_at, created_at, updated_at | unique (alert_id, event_id, target_id) for R9. alert_id, event_id and target_id reference their tables on delete cascade. `attempts` not null default 0. `next_attempt_at` not null default now(). Index (status, next_attempt_at) |
 
-`events.external_id` lets a future real source skip events it has already stored. Simulators set it to a random UUID.
+At startup the API inserts a `sources` row for each registered source and a `channels` row for each registered channel, with `enabled = true`, using `on conflict do nothing`. A restart never overwrites a switch the admin has set.
+
+Deleting an alert or a target deletes its delivery history. Keeping history for deleted objects would need soft deletes, which day one does not have.
+
+`events.external_id` lets a future real source skip events it has already stored. Simulators and the injection route set it to a random UUID.
 
 `deliveries.channel` is copied from the target when the row is created, so metrics per channel need no join.
 
@@ -140,22 +155,33 @@ All ids are UUIDs except `sources.id` and `channels.id`. All timestamps are `tim
 stateDiagram-v2
   [*] --> pending: channel enabled
   [*] --> skipped: channel disabled (R11)
-  pending --> sending: worker claims
-  failed --> sending: worker claims after next_attempt_at
+  pending --> sending: claim
+  failed --> sending: claim after next_attempt_at
+  sending --> sending: lease expired and attempts < max, claimed again
+  sending --> dead: lease expired and attempts >= max
   sending --> sent: send ok
   sending --> failed: error and attempts < max
-  sending --> dead: error and attempts = max
-  sending --> sending: lease expired, claimed again
-  pending --> skipped: channel disabled before send
+  sending --> dead: error and attempts >= max
   failed --> pending: admin retry
   dead --> pending: admin retry
+  skipped --> pending: admin retry
 ```
 
-- Claim query: rows with status `pending` or `failed` and `next_attempt_at <= now()`, plus rows with status `sending` whose lease has expired. The claim sets status `sending`, increments `attempts`, and sets `next_attempt_at = now() + 60s` as a lease. A worker that crashes mid-send leaves the row to be claimed again after 60 seconds.
-- Delivery is therefore at least once. A crash after a successful send and before the status update sends the message a second time. This is acceptable for alerts.
+- Ingest creates a row as `skipped`, with `attempts = 0` and `last_error = 'channel disabled'`, when its channel is disabled. Otherwise the row starts as `pending`.
+- The claim is one statement, `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 10) RETURNING *`, and it commits before any send starts. It picks rows that meet all of these conditions:
+  - the row's channel is enabled
+  - `attempts < DELIVERY_MAX_ATTEMPTS`
+  - status is `pending` or `failed` with `next_attempt_at <= now()`, or status is `sending` with an expired lease, meaning `next_attempt_at <= now()`
+- The claim sets status `sending`, increments `attempts`, and sets `next_attempt_at = now() + DELIVERY_LEASE_MS` as a lease.
+- Before each claim, one more statement sets `dead` on every `sending` row whose lease has expired and whose `attempts >= DELIVERY_MAX_ATTEMPTS`. A crash during the last attempt therefore never leads to an extra send.
+- Rows whose channel is disabled after they were created keep their status. The claim ignores them until the admin enables the channel again.
+- The worker sends all claimed rows at the same time with `Promise.allSettled`. Each send has a deadline well below the 60 second lease. Slack uses a 5 second `AbortSignal.timeout`. Nodemailer uses `connectionTimeout`, `greetingTimeout` and `socketTimeout` of 10 seconds each. The Nodemailer defaults run up to 10 minutes, which would outlive the lease.
+- Every result update is fenced with `WHERE id = :id AND status = 'sending' AND attempts = :claimedAttempts`. If no row matches, a newer claim owns the row and the worker drops the stale result.
+- The next poll is scheduled with `setTimeout` after the batch finishes, so polls never overlap.
+- Delivery is at least once. A crash after a successful send and before the result update sends the message again on the next claim. A lost alert is worse than a repeated one.
 - Backoff after failed attempt n: `DELIVERY_BACKOFF_BASE_MS * 2^(n-1)`, plus up to 10% random jitter. With the default base of 30 seconds, the waits are 30 s, 60 s, 120 s and 240 s. The fifth failure sets `dead`. `computeBackoff(attempt, baseMs, random)` takes `random` as an argument so tests are deterministic.
-- Admin retry (R14) is allowed only from `failed` or `dead`. It sets status `pending`, `attempts = 0`, `next_attempt_at = now()` and clears `last_error`.
-- When the worker claims a row whose channel is disabled, it sets `skipped` without sending.
+- Admin retry (R14) is one conditional `UPDATE ... WHERE id = :id AND status IN ('failed', 'dead', 'skipped') RETURNING id`. It sets status `pending`, `attempts = 0`, `next_attempt_at = now()` and clears `last_error`. If no row comes back, the route returns 409.
+- `last_error` holds a short message such as `Slack responded 500` or `SMTP timeout`. It never contains the webhook URL or SMTP credentials.
 
 ## Matching rules
 
@@ -163,9 +189,9 @@ stateDiagram-v2
 
 | Category | Rule |
 |---|---|
-| news | `keywords` is empty, or at least one keyword appears in the title or summary as a whole word, case-insensitive. Keywords are regex-escaped before use. |
+| news | `keywords` is empty, or at least one keyword appears in the title or summary as a whole word, case-insensitive. A keyword is regex-escaped and wrapped in Unicode lookarounds, `(?<![\p{L}\p{N}])` before it and `(?![\p{L}\p{N}])` after it, with the `iu` flags. `\b` is not used because it fails for keywords such as `C++` and `$TSLA`. |
 | market | `symbols` is empty or contains the event symbol, compared in uppercase. `direction` is `any`, or `up` with `changePct > 0`, or `down` with `changePct < 0`. `abs(changePct) >= minChangePct`. |
-| disaster | `types` is empty or contains the event type. `regions` is empty or contains the event region. If `minMagnitude` is set and the event is an earthquake, `magnitude >= minMagnitude`. `minMagnitude` is ignored for other types. |
+| disaster | `types` is empty or contains the event type. `regions` is empty or contains the event region. If `minMagnitude` is set and the event is an earthquake, the event must have a magnitude and it must be at least `minMagnitude`. An earthquake without a magnitude does not match. `minMagnitude` is ignored for other types. |
 
 ### Severity for simulated events
 
@@ -188,7 +214,7 @@ interface NotificationChannel<C> {
   readonly configSchema: ZodType<C>;
   // Extra server-side checks, such as the Slack URL allowlist. Throws on invalid config.
   assertConfigAllowed?(config: C): void;
-  // Throws on failure. The worker records the error message.
+  // Throws on failure with a message that contains no secrets. The worker stores it in last_error.
   send(config: C, message: NotificationMessage): Promise<void>;
 }
 
@@ -198,13 +224,13 @@ interface NotificationMessage {
 }
 ```
 
-`delivery/message.ts` builds one `NotificationMessage` from an event and an alert. Email sends `subject` and `text`. Slack posts `{ "text": "*<subject>*\n<text>" }`.
+`delivery/message.ts` builds one `NotificationMessage` from an event and an alert. Email sends `subject` and `text`. Slack posts `{ "text": "*<subject>*\n<text>" }` and treats any status outside 200 to 299 as a failure.
 
 To add a channel:
 
-1. Add its config schema and descriptor in `libs/shared`.
+1. Add its entry to the `channels` map in `libs/shared`.
 2. Add a class in `apps/api/src/channels/` that implements `NotificationChannel`.
-3. Register it in `channels/registry.ts` and add a row to the `channels` table in the seed.
+3. Register it in `channels/registry.ts`. The `channels` table row and the metrics keys follow from the registry.
 
 ### Sources
 
@@ -218,25 +244,27 @@ interface EventSource {
 }
 ```
 
-The scheduler keeps one `setTimeout` chain per registered source. Before each poll it reads `sources.enabled` from the database and skips the poll if the source is disabled (R15). Each simulator returns one event per poll and a delay between `SOURCE_MIN_INTERVAL_MS` and `SOURCE_MAX_INTERVAL_MS` (R7). A real source, such as the USGS feed, would return many events per poll and rely on `external_id` to skip repeats.
+The scheduler keeps one `setTimeout` chain per registered source and calls `nextDelayMs()` again before every poll, so each wait is a new random value. Before each poll it reads `sources.enabled` from the database and skips the poll if the source is disabled (R15). Each simulator returns one event per poll and a delay between `SOURCE_MIN_INTERVAL_MS` and `SOURCE_MAX_INTERVAL_MS` (R7). A real source, such as the USGS feed, would return many events per poll and rely on `external_id` to skip repeats. Adding a source means one module and one entry in `sources/registry.ts`.
 
 ## Security
 
 | Concern | Measure |
 |---|---|
 | Password storage | `node:crypto` scrypt with a 16-byte random salt. Stored as `scrypt$N$r$p$salt$hash`. Compared with `timingSafeEqual`. No native module is needed. |
-| Session | JWT signed with HS256 and `JWT_SECRET`, which must be at least 32 characters. Claims are `sub` and `role`. Expiry is 8 hours. Sent in an `HttpOnly`, `SameSite=Strict` cookie, with `Secure` in production. |
-| CSRF | `SameSite=Strict` stops browsers from sending the cookie on cross-site requests. Mutating routes accept only `application/json`. |
-| Authorization | `requireUser` verifies the JWT and loads the user from the database, so a deleted user loses access at once. `requireAdmin` also checks `role = 'admin'`. Every admin route uses `requireAdmin`. |
+| Session | JWT signed with HS256 and `JWT_SECRET`. Verification pins the algorithm to HS256 and reads the token only from the cookie. Claims are `sub` and `role`. Expiry is 8 hours. The cookie is named `session`, has `Path=/`, no `Domain` attribute, `HttpOnly`, `SameSite=Strict`, and `Secure` in production. |
+| Secret | `config.ts` rejects a `JWT_SECRET` shorter than 32 characters or equal to the placeholder in `.env.example`. `npm run setup` writes a random 48-byte secret into `.env`. |
+| CSRF | `SameSite=Strict` stops browsers from sending the cookie on cross-site requests, including bodyless POSTs. The app removes Fastify's default `text/plain` parser, so routes with a body accept only `application/json`. |
+| Authorization | `requireUser` verifies the JWT and loads the user from the database, so a deleted user loses access at once. `requireAdmin` checks the role from that database row, not from the token. Every admin route uses `requireAdmin`. |
 | Object access | Every target and alert query filters by `user_id`. A request for another user's object returns 404. Alert `targetIds` must belong to the same user. |
-| Brute force | `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/register`: 10 requests per minute per IP. |
-| Input validation | Every body, query and params object is validated with the shared zod schemas. Drizzle parameterizes all queries. |
-| SSRF through Slack URLs | `slack-url.ts` parses the URL with `new URL()`. It then checks that `origin + pathname` starts with one of the prefixes in `SLACK_WEBHOOK_ALLOWED_PREFIXES`. The check runs on target create and again before each send. Requests use `redirect: 'error'` and a 5 second timeout. |
+| Brute force | `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/register`. The limit is `AUTH_RATE_LIMIT_MAX` requests per minute per IP, 10 by default. Tests raise it. |
+| Input validation | Handlers parse every body, query and params object with the shared zod schemas. The error handler turns a `ZodError` into a 400 response. Drizzle parameterizes all queries. |
+| SSRF through Slack URLs | At startup, `config.ts` checks each entry in `SLACK_WEBHOOK_ALLOWED_PREFIXES`: it must parse as a URL, end with `/`, and have no user or password. An `http:` prefix is allowed only when `NODE_ENV` is not `production`. For a target URL, `slack-url.ts` parses it with `new URL()`, rejects a user or password, and checks that `origin + pathname` starts with an allowed prefix. The check runs on target create and again before each send. The request goes to the normalized `url.href` with `redirect: 'error'`. |
+| Secrets in errors | Errors stored in `last_error` or returned by the test route never contain the webhook URL or SMTP credentials. Admin delivery responses show the target name, not its config. |
 | Dev routes | `/api/dev/*` is registered only when `NODE_ENV !== 'production'`. |
 
 ## HTTP API
 
-All routes start with `/api`. Errors use the Fastify default shape `{ statusCode, error, message }`. List routes take `limit` (default 50, maximum 200) and `before` (an ISO timestamp cursor on `created_at`).
+All routes start with `/api`. Errors use the Fastify default shape `{ statusCode, error, message }`. List routes take `limit`, 50 by default and 200 at most, and return the newest rows first. Day one has no cursor pagination.
 
 ### Auth
 
@@ -252,39 +280,39 @@ All routes start with `/api`. Errors use the Fastify default shape `{ statusCode
 | Method and path | Body | Result |
 |---|---|---|
 | GET /targets | none | the user's targets |
-| POST /targets | `{ name, channel, config }` | 201. 400 if the config fails the schema or the Slack allowlist |
+| POST /targets | `TargetInput` | 201. 400 if the config fails the schema or the Slack allowlist |
 | DELETE /targets/:id | none | 204. 409 if an alert still uses the target |
-| POST /targets/:id/test | none | sends a test message at once, without the queue. Returns `{ ok: true }` or `{ ok: false, error }` |
+| POST /targets/:id/test | none | sends a test message at once, without the queue. 409 if the channel is disabled. Otherwise returns `{ ok: true }` or `{ ok: false, error }` |
 
 ### Alerts (R4 to R6)
 
 | Method and path | Body | Result |
 |---|---|---|
 | GET /alerts | none | the user's alerts with their target ids |
-| POST /alerts | `{ name, category, filters, minSeverity, targetIds, enabled }`. `targetIds` has at least one id | 201 |
+| POST /alerts | `AlertInput`. `targetIds` has at least one id | 201 |
 | GET /alerts/:id | none | one alert |
-| PUT /alerts/:id | same as POST | 200 |
+| PUT /alerts/:id | `AlertInput` | 200 |
 | PATCH /alerts/:id | `{ enabled }` | 200 |
 | DELETE /alerts/:id | none | 204 |
 
-`filters.category` must equal `category`. The schema rejects a mismatch with 400.
+`AlertInput` is discriminated on `category`, so filters for another category fail with 400.
 
 ### Admin (R12 to R16)
 
 | Method and path | Query or body | Result |
 |---|---|---|
-| GET /admin/users | `limit`, `before` | users with alert counts |
+| GET /admin/users | `limit` | users with alert counts |
 | GET /admin/alerts | `userId` | that user's alerts |
-| GET /admin/events | `category`, `limit`, `before` | events, newest first |
-| GET /admin/deliveries | `status`, `channel`, `limit`, `before` | deliveries with event title, alert name and user email |
-| POST /admin/deliveries/:id/retry | none | 200. 409 unless the status is `failed` or `dead` |
+| GET /admin/events | `category`, `limit` | events, newest first |
+| GET /admin/deliveries | `status`, `channel`, `limit` | deliveries with event title, alert name, target name and user email |
+| POST /admin/deliveries/:id/retry | none | 200. 409 unless the status is `failed`, `dead` or `skipped` |
 | GET /admin/sources | none | sources with `enabled` |
 | PATCH /admin/sources/:id | `{ enabled }` | 200 |
 | GET /admin/channels | none | channels with `enabled` |
 | PATCH /admin/channels/:id | `{ enabled }` | 200 |
 | GET /admin/metrics | none | see below |
 
-Metrics cover rows created in the last 24 hours:
+Metrics cover rows created in the last 24 hours. The category keys come from `Category`. The channel keys come from the channel registry. Example with today's registry:
 
 ```json
 {
@@ -301,8 +329,8 @@ Failure rate for a channel is `dead / (sent + dead)`. It is 0 when both counts a
 
 | Method and path | Body | Result |
 |---|---|---|
-| POST /dev/events | `{ category, title, summary, severity, data }` | 201. Uses `ingestEvent` with `source_id = 'dev'`. Returns the event and the number of deliveries created |
-| POST /dev/mock-slack/:hookId | any JSON | stores the message in memory. Returns 500 while fail mode is on, otherwise 200 |
+| POST /dev/events | `EventInput` with optional `summary` (default empty) and `occurredAt` (default now) | 201. Uses `ingestEvent` with `source_id = 'dev'` and a random `external_id`. Returns the event and the number of deliveries created |
+| POST /dev/mock-slack/:hookId | `MockSlackMessage` | stores the message in memory. Returns 500 while fail mode is on, otherwise 200 |
 | GET /dev/mock-slack/messages | none | stored messages |
 | DELETE /dev/mock-slack/messages | none | 204, clears the store |
 | PUT /dev/mock-slack/mode | `{ fail: boolean }` | 200 |
@@ -316,8 +344,8 @@ Angular 22 with standalone components and signals, using the defaults that `@nx/
 | /login, /register | public | forms |
 | /alerts | user | list with an enable switch per alert |
 | /alerts/new, /alerts/:id | user | form. The category select decides which filter fields appear. Targets are a multi-select |
-| /targets | user | list, create form built from `channelDescriptors`, test button |
-| /admin/users | admin | users, expandable to show their alerts |
+| /targets | user | list, create form built from the shared `channels` map, test button |
+| /admin/users | admin | user table. Selecting a user shows that user's alerts below the table |
 | /admin/events | admin | event table with a category filter |
 | /admin/deliveries | admin | table with status and channel filters and a retry button |
 | /admin/settings | admin | switches for sources and channels |
@@ -325,7 +353,7 @@ Angular 22 with standalone components and signals, using the defaults that `@nx/
 
 - `authStore` loads `/api/auth/me` once and keeps the user in a signal.
 - `authGuard` and `adminGuard` protect the routes. The server checks access again on every request.
-- The events and deliveries pages refresh every 10 seconds and have a manual refresh button.
+- The events and deliveries pages have a refresh button. They do not refresh on a timer.
 
 ## Configuration
 
@@ -335,14 +363,17 @@ Angular 22 with standalone components and signals, using the defaults that `@nx/
 NODE_ENV=development
 PORT=3000
 DATABASE_URL=postgres://alerts:alerts@localhost:5432/alerts
+TEST_DATABASE_URL=postgres://alerts:alerts@localhost:5432/alerts_test
 JWT_SECRET=replace-with-at-least-32-random-characters
 SMTP_HOST=localhost
 SMTP_PORT=1025
 MAIL_FROM=alerts@example.local
 SLACK_WEBHOOK_ALLOWED_PREFIXES=https://hooks.slack.com/services/,http://localhost:3000/api/dev/mock-slack/
+AUTH_RATE_LIMIT_MAX=10
 WORKER_POLL_MS=2000
 DELIVERY_MAX_ATTEMPTS=5
 DELIVERY_BACKOFF_BASE_MS=30000
+DELIVERY_LEASE_MS=60000
 SOURCE_MIN_INTERVAL_MS=20000
 SOURCE_MAX_INTERVAL_MS=60000
 SEED_ADMIN_EMAIL=admin@example.local
@@ -351,14 +382,23 @@ SEED_USER_EMAIL=user@example.local
 SEED_USER_PASSWORD=user-password-123
 ```
 
-`docker-compose.yml` runs `postgres:18-alpine` on port 5432 and `axllent/mailpit` on ports 1025 and 8025.
+`docker-compose.yml` runs `postgres:18-alpine` on port 5432 and `axllent/mailpit` on ports 1025 and 8025. `docker/postgres-init.sql` creates the `alerts_test` database on first start. Tests use their own database so they never wipe the developer's data.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `npm run setup` | writes `.env` from `.env.example` with a random `JWT_SECRET` if `.env` is missing, runs `docker compose up -d`, applies migrations to both databases, seeds the two users |
+| `npm run dev` | serves the API and the web app with Nx |
+| `npm test` | runs unit and integration tests |
+| `npm run e2e` | runs the Playwright test against a running stack |
 
 ## Tests
 
 | Level | Tool | Covers |
 |---|---|---|
-| Unit | Vitest | `matchesFilters` with a table of cases per category, severity mapping, `computeBackoff`, Slack URL allowlist with hostile URLs such as `https://hooks.slack.com.evil.com/` and `https://evil.com/?https://hooks.slack.com/services/`, password hash and verify |
-| Integration | Vitest with `app.inject()` against a separate `alerts_test` database | register and login, 404 on another user's alert, 403 for a user on admin routes, inject event to delivery rows, rerunning the matcher creates no duplicate, worker sends to Mailpit and the mock receiver, fail mode leads to `failed` then `dead` with base backoff 0, admin retry |
+| Unit | Vitest | `matchesFilters` with a table of cases per category, including `C++`, `boil` against keyword `oil`, and an earthquake without a magnitude. Also severity mapping, `computeBackoff`, the Slack URL allowlist with hostile URLs such as `https://hooks.slack.com.evil.com/`, `https://evil.com/?https://hooks.slack.com/services/` and `https://user@hooks.slack.com/services/x`, config rejection of the placeholder secret and of a prefix without a trailing slash, and password hash and verify |
+| Integration | Vitest against the `alerts_test` database. Plain routes use `app.inject()`. Delivery tests start the app with `listen({ port: 0 })` and point the Slack allowlist at that port, because `app.inject()` opens no socket for the worker to call | register and login, 404 on another user's alert, 403 for a user on admin routes, 400 for filters of the wrong category, inject event to delivery rows, rerunning the matcher creates no duplicate, worker sends to Mailpit and the mock receiver, fail mode leads to `failed` then `dead` with base backoff 0, an expired lease at max attempts becomes `dead` with no extra send, a stale result after a newer claim is dropped, a disabled channel creates `skipped` rows, admin retry |
 | End to end | Playwright | the demo user signs in, creates a Slack target with the mock URL and a market alert, an event is injected, the mock receiver gets the message, the admin sees the delivery as `sent` |
 
 Integration tests read Mailpit through its REST API at `http://localhost:8025/api/v1/messages`.
@@ -366,6 +406,9 @@ Integration tests read Mailpit through its REST API at `http://localhost:8025/ap
 ## Known limits
 
 - Delivery is at least once. See Delivery states.
+- Logout clears the cookie but does not revoke the token. A copied token stays valid until it expires, at most 8 hours.
+- `SameSite=Strict` trusts every origin on the same site, such as a sibling subdomain. The app runs on localhost only, so day one has no `Origin` header check.
+- Deleting an alert or target deletes its delivery history.
 - Matching loads every enabled alert in the event's category. This is fine for thousands of alerts. Beyond that, coarse filters should move into SQL.
 - Timers live in one process. Several API processes would each run the scheduler and create extra events. The worker is safe with several processes because of `SKIP LOCKED`.
 - The mock Slack receiver stores messages in memory and loses them on restart.

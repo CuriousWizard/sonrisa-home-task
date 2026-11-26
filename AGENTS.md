@@ -15,6 +15,7 @@ The repository is an interview submission. Reviewers grade the process, so the p
 | `docs/design.md` | Architecture, data model, API |
 | `docs/decision-log.md` | Decisions with options and reasons |
 | `docs/ai-review-log.md` | AI output that was checked, rejected or corrected |
+| `docs/reviews/` | Reviewer replies, unedited |
 | `prompts/prompt-log.md` | User prompts, word for word |
 | `prompts/subagents/` | Prompts the orchestrator sent to subagents |
 
@@ -69,7 +70,7 @@ Follow the [Angular commit message guidelines](https://github.com/angular/angula
 
 ## Writing rules
 
-Apply `.agents/skills/unslop/SKILL.md` to all prose in `docs/`, `prompts/`, `README.md` and this file.
+Apply `.agents/skills/unslop/SKILL.md` to all prose in `docs/`, `prompts/`, `README.md` and this file. Two kinds of text stay word for word and are exempt: user prompts in `prompts/prompt-log.md` and reviewer replies in `docs/reviews/`.
 
 ## Code rules
 

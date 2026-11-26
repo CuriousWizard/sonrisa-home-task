@@ -119,3 +119,27 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: one Angular form component per channel, a generic form built from a field list in `libs/shared`.
 - Decided by: orchestrator.
 - Reason: requirement N3 asks that a new channel need no changes outside its own module. A field list keeps the web app out of that change.
+
+## D-021 Zod validation without a Fastify type provider
+
+- Options: `fastify-type-provider-zod`, parsing with zod inside each handler.
+- Decided by: orchestrator, after reviewer-opus reported the provider's peer dependencies and the orchestrator confirmed them with `npm view fastify-type-provider-zod@7.0.0 peerDependencies`.
+- Reason: version 7.0.0 requires `@fastify/swagger` and `openapi-types` as non-optional peers. The app does not need OpenAPI output on day one. `Schema.parse(request.body)` returns a typed value, and one error handler maps `ZodError` to 400.
+
+## D-022 `pg` driver with drizzle-kit migrations
+
+- Options: `postgres` (postgres.js), `pg` (node-postgres).
+- Decided by: orchestrator, after both reviewers noted the design named no driver.
+- Reason: `pg` is the most used driver and Drizzle supports it through `drizzle-orm/node-postgres`. Both drivers meet the Drizzle 0.45.4 peer ranges, so the choice has no compatibility cost.
+
+## D-023 No cursor pagination on day one
+
+- Options: `created_at` cursor, `(created_at, id)` cursor, `limit` only.
+- Decided by: orchestrator, after both reviewers found that a `created_at` cursor drops rows that share a timestamp.
+- Reason: a correct cursor costs time that the 2-hour budget does not have. Admin lists show the newest 200 rows at most.
+
+## D-024 Disabled channels pause queued deliveries
+
+- Options: mark queued rows `skipped` when the worker sees a disabled channel, leave them queued until the channel is enabled again.
+- Decided by: orchestrator, after both reviewers found that the draft spent an attempt and then dropped the row for good.
+- Reason: an admin may disable a channel for a short outage. Queued rows wait and resume. Rows created while the channel is off are stored as `skipped`, and admin retry now accepts `skipped`.
