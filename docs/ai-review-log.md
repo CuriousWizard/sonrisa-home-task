@@ -36,7 +36,9 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 
 - Check: invoked both reviewer agents with a task that has a known answer. Each agent had to run `git log` and quote a line from `AGENTS.md`.
 - Result: both agents ran the command and quoted the line correctly. Each reported the model from its own config file and said it could not confirm the model it runs on. The session debug log did not record model ids.
-- Status: open. The user can confirm the model of each subagent call in the VS Code Chat Debug view.
+- Follow-up: the user tested the reviewer setup in a separate git worktree. reviewer-gpt runs on GPT-6.2 Sol, but no reasoning effort was configured, so it ran on medium. The user then set GPT-6.2 Sol to extra high in the VS Code settings.
+- Consequence: the M1 design review by reviewer-gpt (V-008) ran on medium reasoning effort. The design is approved, so the review is not repeated. Reviews from M2 onwards run on extra high.
+- Status: closed.
 
 ## V-006 Commit convention
 
@@ -95,3 +97,16 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 
 - Comparison: reviewer-opus ran its own `node` tests against Node 26 and read the Nodemailer docs for default timeouts. reviewer-gpt could not reach the npm registry and used the local cache. It still found four issues that reviewer-opus missed: the `app.inject()` socket problem, secrets in error messages, the test route with a disabled channel, and the non-atomic retry. Neither review contained a false claim that the orchestrator could find.
 - Status: corrected. The design diff after commit `28355cf` shows every change.
+
+## V-009 User check of the word-boundary claim
+
+- AI claim: reviewer-opus F13 said `\b` fails for keywords such as `C++` and `$TSLA`.
+- Check: the user ran an independent `node -e` test of `\b` plus the escaped keyword against four headlines.
+- Result: `S&P` true, `C++` false, `$TSLA` false, `oil` true. The claim holds. The design uses Unicode lookarounds instead (see V-008).
+- Status: accepted.
+
+## V-010 Chat export before commit
+
+- Check: before committing `prompts/exports/M1-chat.json`, the orchestrator scanned it for GitHub tokens, OpenAI-style keys, Slack tokens, AWS keys and Slack webhook URLs.
+- Result: the only matches were the fake test URL `https://user:pw@hooks.slack.com/services/T/B/C` that the reviewers used in their checks. No real secret was found.
+- Status: accepted.

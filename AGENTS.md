@@ -49,7 +49,7 @@ The two reviewer files in `.github/agents/` share the same body. Only the model 
 3. The orchestrator checks the result itself: reads the diff, runs build and tests, and checks package versions with `npm view`.
 4. Both reviewers get the same review prompt and run in parallel.
 5. The orchestrator compares the two reviews. It accepts, rejects or defers each finding and records the outcome with a reason in `docs/ai-review-log.md`.
-6. The orchestrator commits. The user pushes. Agents never push.
+6. The orchestrator commits. Agents push only when the user asks for it in the current prompt.
 
 ## Commit messages
 

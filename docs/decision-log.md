@@ -73,6 +73,7 @@ Each entry records what was decided, which options were considered, who decided,
 - Decided by: user.
 - Setup: `reviewer-opus` runs on Claude Opus 5.5 and `reviewer-gpt` runs on GPT-6.2 Sol. Both agent files have the same body, so differences in the reviews come from the model and not from the instructions.
 - Reason: the two models fail in different ways. Findings that only one reviewer reports get a second look from the orchestrator before they are accepted.
+- Update after M1: GPT-6.2 Sol had no reasoning effort set and ran on medium for the M1 review. The user set it to extra high in VS Code. See V-005.
 
 ## D-013 Simulated events on a timer, plus an injection route
 
@@ -143,3 +144,9 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: mark queued rows `skipped` when the worker sees a disabled channel, leave them queued until the channel is enabled again.
 - Decided by: orchestrator, after both reviewers found that the draft spent an attempt and then dropped the row for good.
 - Reason: an admin may disable a channel for a short outage. Queued rows wait and resume. Rows created while the channel is off are stored as `skipped`, and admin retry now accepts `skipped`.
+
+## D-025 Agents push on request
+
+- Options: only the user pushes, agents push when asked.
+- Decided by: user, in prompt 004.
+- Rule: the orchestrator pushes only when the current prompt asks for it. It never force-pushes.

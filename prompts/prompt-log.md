@@ -75,3 +75,21 @@ Context for the numbered answers. The agent had asked:
 2. Do you have a Slack workspace where you can create an incoming webhook?
 3. Should I commit at each milestone, with you doing all the pushes?
 4. Should generated events appear on a timer in addition to the dev injection endpoint?
+
+## 004 Design approval, Docker, chat export, push
+
+```text
+1. Reviewed, looks good to me. If there will be a decision about this, we will iterate on that.
+2. Already installed Docker
+3. M1-chat.json is created. I think this should earn a separate folder, move it to one.
+4. I did a research in parallel on a worktree: GPT 6.2 Sol did not have settings so it ran on Medium reasoning effort. Now that I've set it in VS Code, it will be on extra high each time. So now it looks fine.
+5. You can push those commits to remote.
+```
+
+The numbers answer the agent's list of next steps: review the design, install Docker, export the chat, check the reviewer models, push.
+
+## Chat exports
+
+| File | Covers |
+| --- | --- |
+| `prompts/exports/M1-chat.json` | Prompts 001 to 003, milestones M0 and M1 |
