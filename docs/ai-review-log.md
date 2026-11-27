@@ -302,3 +302,10 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Comparison: both reviewers found the major e2e isolation problem. reviewer-opus read the Nx Playwright plugin and explained how `npm run e2e` starts the servers. reviewer-gpt found the weaker assertions: the hook-only poll and the unchecked threshold.
 - Fixes: prompt `027-m5-fix-tests.md`. The orchestrator then ran the pipeline spec, `npm run e2e` and the full gate again.
 - Status: corrected.
+
+## V-023 M4 and M5 chat export before commit
+
+- Check: before committing `prompts/exports/M4-M5-chat.json`, the orchestrator scanned it for GitHub, OpenAI-style, Slack, AWS and npm tokens, private keys, Basic and Bearer credentials, JWTs, `session=` cookies and Slack webhook URLs. It also counted the occurrences of the real `JWT_SECRET` from `.env` without printing it. It ran the secret and JWT counts on the two earlier exports as well.
+- Result: every webhook URL match was a fake test URL such as `https://hooks.slack.com/services/T0/B0/x`. The `sk-` match was part of `task-04-feature-design-and-build`. No export contains a JWT or the secret.
+- Correction: the exports table in `prompts/prompt-log.md` said the M2 and M3 export covers prompts 004 to 009. Each export holds the whole chat up to the moment of export, so the table now names the prompts that are new in each export.
+- Status: accepted.

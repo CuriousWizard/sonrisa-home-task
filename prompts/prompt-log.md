@@ -167,9 +167,37 @@ The agent installed Playwright's Chromium, found that it could not start because
 I could simply run npx without sudo. Anyway, I ran it
 ```
 
+## 014 Start M6 in a new chat
+
+The first chat had filled its context. The user opened a new chat, attached `prompts/handoff/m6-new-chat.md` and wrote:
+
+```text
+There is a handoff file for your task from another agent. Read the markdown file and complete this M6 task.
+```
+
+The handoff prompt told the agent to reply with an M6 plan and questions first. The agent asked six questions through the VS Code question form. Each line has the question, then the user's answer.
+
+```text
+V-016 (Claude Opus 5.5 at medium vs xhigh) is still open. How should M6 handle it?
+  -> Leave open
+How should the two remaining warnings be handled?
+  -> Leave both as open items
+Rename prompts/exports/M4-M5.chat.json to M4-M5-chat.json to match the other two exports?
+  -> Yes, rename
+Should the Playwright script that takes the README screenshots be committed?
+  -> Commit it in scripts/
+The export of this chat can only be made at the end. Which order do you want?
+  -> Export first, then tag
+Should I push main and the m6 tag when M6 is done?
+  -> Yes, push at the end
+```
+
 ## Chat exports
 
-| File                              | Covers                                   |
+Prompts 001 to 013, except 007, come from one chat. Each export of that chat holds the whole chat up to the moment of export. The "New prompts" column names the prompts that the earlier export does not have. The exports also contain `@agent Continue: "Continue to iterate?"` requests. VS Code sends one when the user clicks Continue at the tool call limit. They carry no text from the user.
+
+| File                              | New prompts                              |
 | --------------------------------- | ---------------------------------------- |
 | `prompts/exports/M1-chat.json`    | Prompts 001 to 003, milestones M0 and M1 |
 | `prompts/exports/M2-M3-chat.json` | Prompts 004 to 009, milestones M2 and M3 |
+| `prompts/exports/M4-M5-chat.json` | Prompts 010 to 013, milestones M4 and M5 |
