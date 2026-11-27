@@ -129,8 +129,15 @@ Create a commit including those updates here in main.
 Back to M2: looks good so you can push it. Continue with M3.
 ```
 
+## 010 Commit formatter changes
+
+```text
+I've clicked on keep here in VS Code chat and there are uncommited changes. I think all of those are linting like Prettier changed some stuff. Check those files' content and commit them if you find them right.
+```
+
 ## Chat exports
 
-| File                           | Covers                                   |
-| ------------------------------ | ---------------------------------------- |
-| `prompts/exports/M1-chat.json` | Prompts 001 to 003, milestones M0 and M1 |
+| File                              | Covers                                   |
+| --------------------------------- | ---------------------------------------- |
+| `prompts/exports/M1-chat.json`    | Prompts 001 to 003, milestones M0 and M1 |
+| `prompts/exports/M2-M3-chat.json` | Prompts 004 to 009, milestones M2 and M3 |
