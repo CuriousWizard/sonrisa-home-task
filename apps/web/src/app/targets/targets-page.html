@@ -1,0 +1,166 @@
+<app-page-header
+  heading="Targets"
+  description="A target is where an alert sends its messages."
+/>
+
+@if (loadError(); as message) {
+<p class="text-destructive text-sm">{{ message }}</p>
+} @else if (targets() === null) {
+<p class="text-muted-foreground text-sm">Loading targets.</p>
+} @else if (rows().length === 0) {
+<p class="text-muted-foreground text-sm">
+  You have no targets yet. Add one with the form below.
+</p>
+} @else {
+<div hlmTableContainer class="rounded-lg border">
+  <table hlmTable>
+    <thead hlmTHead>
+      <tr hlmTr>
+        <th hlmTh>Name</th>
+        <th hlmTh>Channel</th>
+        <th hlmTh>Destination</th>
+        <th hlmTh>Actions</th>
+      </tr>
+    </thead>
+    <tbody hlmTBody>
+      @for (row of rows(); track row.target.id) {
+      <tr hlmTr>
+        <td hlmTd class="font-medium">{{ row.target.name }}</td>
+        <td hlmTd>{{ row.channelLabel }}</td>
+        <td hlmTd class="font-mono text-xs">{{ row.destination }}</td>
+        <td hlmTd class="whitespace-normal">
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              type="button"
+              (click)="sendTest(row.target)"
+            >
+              Send test
+            </button>
+            @if (confirmingDelete() === row.target.id) {
+            <button
+              hlmBtn
+              variant="destructive"
+              size="sm"
+              type="button"
+              (click)="remove(row.target)"
+            >
+              Confirm delete
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="cancelDelete()"
+            >
+              Cancel
+            </button>
+            } @else {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="remove(row.target)"
+            >
+              Delete
+            </button>
+            } @if (rowMessages()[row.target.id]; as message) {
+            <span
+              role="status"
+              class="text-sm"
+              [class.text-muted-foreground]="message.tone === 'muted'"
+              [class.text-destructive]="message.tone === 'error'"
+              >{{ message.text }}</span
+            >
+            }
+          </div>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+}
+
+<section class="mt-10 max-w-md" aria-labelledby="add-target-heading">
+  <h2 id="add-target-heading" class="mb-4 text-lg font-semibold">
+    Add a target
+  </h2>
+  <form
+    [formGroup]="form"
+    (ngSubmit)="create()"
+    class="flex flex-col gap-4"
+    novalidate
+  >
+    <div class="flex flex-col gap-2">
+      <label hlmLabel for="target-name">Name</label>
+      <input
+        hlmInput
+        id="target-name"
+        formControlName="name"
+        autocomplete="off"
+        [forceInvalid]="!!errors()['name']"
+        [aria-describedby]="errors()['name'] ? 'target-name-error' : null"
+      />
+      @if (errors()['name']; as message) {
+      <p id="target-name-error" class="text-destructive text-sm">
+        {{ message }}
+      </p>
+      }
+    </div>
+    <div class="flex flex-col gap-2">
+      <label hlmLabel for="target-channel">Channel</label>
+      <select
+        id="target-channel"
+        [class]="selectClass"
+        formControlName="channel"
+      >
+        @for (option of channelOptions; track option.id) {
+        <option [value]="option.id">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+    <div formGroupName="config" class="flex flex-col gap-4">
+      @for (field of fields(); track field.key) {
+      <div class="flex flex-col gap-2">
+        <label hlmLabel [for]="'target-config-' + field.key"
+          >{{ field.label }}</label
+        >
+        <input
+          hlmInput
+          [id]="'target-config-' + field.key"
+          [type]="field.inputType"
+          [formControlName]="field.key"
+          autocomplete="off"
+          [forceInvalid]="!!errors()['config.' + field.key]"
+          [aria-describedby]="
+            errors()['config.' + field.key]
+              ? 'target-config-' + field.key + '-error'
+              : null
+          "
+        />
+        @if (errors()['config.' + field.key]; as message) {
+        <p
+          [id]="'target-config-' + field.key + '-error'"
+          class="text-destructive text-sm"
+        >
+          {{ message }}
+        </p>
+        }
+      </div>
+      }
+    </div>
+    <button hlmBtn type="submit" class="self-start" [disabled]="pending()">
+      Add target
+    </button>
+  </form>
+  @if (serverError(); as message) {
+  <div hlmAlert variant="destructive" class="mt-4">
+    <p hlmAlertDescription>{{ message }}</p>
+  </div>
+  }
+</section>

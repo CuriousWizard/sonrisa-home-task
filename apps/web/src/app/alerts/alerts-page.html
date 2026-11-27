@@ -1,0 +1,99 @@
+<app-page-header
+  heading="Alerts"
+  description="An alert sends a message to its targets when an event matches its filters."
+/>
+
+@if (loadError(); as message) {
+<p class="text-destructive text-sm">{{ message }}</p>
+} @else if (alerts() === null) {
+<p class="text-muted-foreground text-sm">Loading alerts.</p>
+} @else { @if (rows().length === 0) {
+<p class="text-muted-foreground mb-4 text-sm">You have no alerts yet.</p>
+}
+<div class="mb-4">
+  <a hlmBtn routerLink="/alerts/new">New alert</a>
+</div>
+@if (rows().length > 0) {
+<div hlmTableContainer class="rounded-lg border">
+  <table hlmTable>
+    <thead hlmTHead>
+      <tr hlmTr>
+        <th hlmTh>Name</th>
+        <th hlmTh>Category</th>
+        <th hlmTh>Filters</th>
+        <th hlmTh>Min. severity</th>
+        <th hlmTh>Targets</th>
+        <th hlmTh>Enabled</th>
+        <th hlmTh>Actions</th>
+      </tr>
+    </thead>
+    <tbody hlmTBody>
+      @for (row of rows(); track row.alert.id) {
+      <tr hlmTr>
+        <td hlmTd class="font-medium">{{ row.alert.name }}</td>
+        <td hlmTd>{{ categoryLabels[row.alert.category] }}</td>
+        <td hlmTd>
+          <span class="block max-w-xs truncate" [title]="row.summary"
+            >{{ row.summary }}</span
+          >
+        </td>
+        <td hlmTd>{{ row.alert.minSeverity }}</td>
+        <td hlmTd>{{ row.alert.targetIds.length }}</td>
+        <td hlmTd>
+          <hlm-switch
+            [checked]="row.alert.enabled"
+            [aria-label]="row.alert.name + ' enabled'"
+            (checkedChange)="setEnabled(row.alert, $event)"
+          />
+        </td>
+        <td hlmTd class="whitespace-normal">
+          <div class="flex flex-wrap items-center gap-2">
+            <a
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [routerLink]="['/alerts', row.alert.id]"
+              >Edit</a
+            >
+            @if (confirmingDelete() === row.alert.id) {
+            <button
+              hlmBtn
+              variant="destructive"
+              size="sm"
+              type="button"
+              (click)="remove(row.alert)"
+            >
+              Confirm delete
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="cancelDelete()"
+            >
+              Cancel
+            </button>
+            } @else {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="remove(row.alert)"
+            >
+              Delete
+            </button>
+            } @if (rowErrors()[row.alert.id]; as message) {
+            <span role="status" class="text-destructive text-sm"
+              >{{ message }}</span
+            >
+            }
+          </div>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+} }
