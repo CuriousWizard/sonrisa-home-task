@@ -28,6 +28,7 @@
             <div class="flex flex-wrap items-center gap-3">
               <hlm-switch
                 [checked]="source.enabled"
+                [disabled]="saving().has('source:' + source.id)"
                 [aria-label]="source.id + ' enabled'"
                 (checkedChange)="setSourceEnabled(source, $event)"
               />
@@ -63,6 +64,7 @@
             <div class="flex flex-wrap items-center gap-3">
               <hlm-switch
                 [checked]="channel.enabled"
+                [disabled]="saving().has('channel:' + channel.id)"
                 [aria-label]="channel.id + ' enabled'"
                 (checkedChange)="setChannelEnabled(channel, $event)"
               />

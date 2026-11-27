@@ -41,6 +41,7 @@
             variant="outline"
             size="sm"
             type="button"
+            [attr.aria-label]="'Show alerts of ' + user.email"
             (click)="select(user)"
           >
             Show alerts

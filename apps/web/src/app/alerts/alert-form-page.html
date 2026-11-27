@@ -55,10 +55,12 @@
 
   @switch (category()) { @case ('news') {
   <div formGroupName="news" class="flex flex-col gap-2">
-    <label hlmLabel for="alert-keywords">Keywords</label>
-    <input
+    <label hlmLabel for="alert-keywords">Keywords, one per line</label>
+    <textarea
       hlmInput
       id="alert-keywords"
+      class="h-auto py-2"
+      rows="4"
       formControlName="keywords"
       autocomplete="off"
       [forceInvalid]="!!errors().keywords"
@@ -67,9 +69,9 @@
           ? 'alert-keywords-hint alert-keywords-error'
           : 'alert-keywords-hint'
       "
-    />
+    ></textarea>
     <p id="alert-keywords-hint" class="text-muted-foreground text-sm">
-      Separate keywords with commas. Leave it empty to match all news.
+      Leave it empty to match all news.
     </p>
     @if (errors().keywords; as message) {
     <p id="alert-keywords-error" class="text-destructive text-sm">
@@ -281,6 +283,22 @@
         {{ target.name }}
         <span class="text-muted-foreground">({{ target.channelLabel }})</span>
       </label>
+    </div>
+    } @if (unlistedTargetIds().length > 0) {
+    <div class="flex flex-wrap items-center gap-2">
+      <p id="alert-unlisted-targets" class="text-muted-foreground text-sm">
+        {{ unlistedText() }}
+      </p>
+      <button
+        hlmBtn
+        variant="ghost"
+        size="sm"
+        type="button"
+        aria-describedby="alert-unlisted-targets"
+        (click)="removeUnlistedTargets()"
+      >
+        Remove
+      </button>
     </div>
     } @if (errors().targetIds; as message) {
     <p id="alert-targets-error" class="text-destructive text-sm">

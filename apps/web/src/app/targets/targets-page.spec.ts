@@ -90,6 +90,75 @@ describe('TargetsPage', () => {
     expect(root.querySelector('tbody')?.textContent).not.toContain('secret');
   });
 
+  it('shows the Slack allowlist rejection under the config fields', async () => {
+    const { fixture, root } = await render([]);
+    const select = root.querySelector<HTMLSelectElement>('#target-channel');
+    if (!select) throw new Error('missing channel select');
+    select.value = 'slack';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+
+    const name = inputByLabel(root, 'Name');
+    const webhook = inputByLabel(root, 'Webhook URL');
+    if (!name || !webhook) throw new Error('missing target inputs');
+    name.value = 'Team';
+    name.dispatchEvent(new Event('input'));
+    webhook.value = 'https://example.com/hook';
+    webhook.dispatchEvent(new Event('input'));
+    button(root, 'Add target').click();
+
+    const request = http.expectOne('/api/targets');
+    expect(request.request.method).toBe('POST');
+    request.flush(
+      {
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Webhook URL is not on the allowed list',
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await fixture.whenStable();
+
+    const message = root.querySelector('#target-config-error');
+    expect(message?.textContent).toContain(
+      'Webhook URL is not on the allowed list',
+    );
+    expect(message?.closest('[formgroupname="config"]')).not.toBeNull();
+    expect(webhook.getAttribute('aria-describedby')).toContain(
+      'target-config-error',
+    );
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('turns Delete into Confirm delete on the same focused button, and Escape or blur cancels', async () => {
+    const { fixture, root } = await render([target]);
+    const remove = button(root, 'Delete');
+    expect(remove.getAttribute('aria-label')).toBe('Delete target Ops channel');
+
+    remove.focus();
+    remove.click();
+    await fixture.whenStable();
+    expect(button(root, 'Confirm delete')).toBe(remove);
+    expect(remove.getAttribute('aria-label')).toBe(
+      'Confirm delete target Ops channel',
+    );
+    expect(remove.classList.contains('text-destructive')).toBe(true);
+    expect(document.activeElement).toBe(remove);
+
+    remove.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await fixture.whenStable();
+    expect(remove.textContent?.trim()).toBe('Delete');
+    expect(remove.classList.contains('text-destructive')).toBe(false);
+
+    remove.click();
+    await fixture.whenStable();
+    expect(remove.textContent?.trim()).toBe('Confirm delete');
+    remove.blur();
+    await fixture.whenStable();
+    expect(remove.textContent?.trim()).toBe('Delete');
+    http.expectNone(`/api/targets/${target.id}`);
+  });
+
   it('asks for a second click and shows the 409 message on delete', async () => {
     const { fixture, root } = await render([target]);
 

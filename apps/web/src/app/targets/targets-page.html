@@ -23,7 +23,8 @@
       </tr>
     </thead>
     <tbody hlmTBody>
-      @for (row of rows(); track row.target.id) {
+      @for (row of rows(); track row.target.id) { @let confirming =
+      confirmingDelete() === row.target.id;
       <tr hlmTr>
         <td hlmTd class="font-medium">{{ row.target.name }}</td>
         <td hlmTd>{{ row.channelLabel }}</td>
@@ -35,40 +36,27 @@
               variant="outline"
               size="sm"
               type="button"
+              [attr.aria-label]="'Send test to ' + row.target.name"
               (click)="sendTest(row.target)"
             >
               Send test
             </button>
-            @if (confirmingDelete() === row.target.id) {
             <button
               hlmBtn
-              variant="destructive"
+              [variant]="confirming ? 'destructive' : 'ghost'"
               size="sm"
               type="button"
+              [attr.aria-label]="
+                (confirming ? 'Confirm delete target ' : 'Delete target ') +
+                row.target.name
+              "
               (click)="remove(row.target)"
+              (keydown.escape)="cancelDelete(row.target.id)"
+              (blur)="cancelDelete(row.target.id)"
             >
-              Confirm delete
+              {{ confirming ? 'Confirm delete' : 'Delete' }}
             </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              type="button"
-              (click)="cancelDelete()"
-            >
-              Cancel
-            </button>
-            } @else {
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              type="button"
-              (click)="remove(row.target)"
-            >
-              Delete
-            </button>
-            } @if (rowMessages()[row.target.id]; as message) {
+            @if (rowMessages()[row.target.id]; as message) {
             <span
               role="status"
               class="text-sm"
@@ -136,12 +124,10 @@
           [type]="field.inputType"
           [formControlName]="field.key"
           autocomplete="off"
-          [forceInvalid]="!!errors()['config.' + field.key]"
-          [aria-describedby]="
-            errors()['config.' + field.key]
-              ? 'target-config-' + field.key + '-error'
-              : null
+          [forceInvalid]="
+            !!errors()['config.' + field.key] || !!errors()['config']
           "
+          [aria-describedby]="configErrorIds(field.key)"
         />
         @if (errors()['config.' + field.key]; as message) {
         <p
@@ -152,6 +138,10 @@
         </p>
         }
       </div>
+      } @if (errors()['config']; as message) {
+      <p id="target-config-error" class="text-destructive text-sm">
+        {{ message }}
+      </p>
       }
     </div>
     <button hlmBtn type="submit" class="self-start" [disabled]="pending()">

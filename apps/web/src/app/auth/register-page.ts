@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -54,7 +55,11 @@ export class RegisterPage {
       await this.auth.register(result.data);
       await this.router.navigateByUrl('/alerts');
     } catch (error) {
-      this.serverError.set(serverMessage(error));
+      if (error instanceof HttpErrorResponse && error.status === 409) {
+        this.errors.set({ email: 'This email is already registered.' });
+      } else {
+        this.serverError.set(serverMessage(error));
+      }
     } finally {
       this.pending.set(false);
     }

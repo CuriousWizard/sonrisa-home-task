@@ -55,6 +55,7 @@ describe('SettingsPage', () => {
     toggle.click();
     await fixture.whenStable();
     expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.disabled).toBe(true);
     const request = http.expectOne('/api/admin/channels/email');
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({ enabled: false });
@@ -69,6 +70,7 @@ describe('SettingsPage', () => {
     await settle(fixture);
 
     expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(toggle.disabled).toBe(false);
     expect(root.querySelector('[role="status"]')?.textContent).toContain(
       'Database unavailable',
     );

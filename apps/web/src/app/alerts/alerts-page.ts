@@ -33,6 +33,8 @@ export class AlertsPage {
     })),
   );
   protected readonly rowErrors = signal<Record<string, string>>({});
+  // Alerts with a PATCH in flight. Their switch is disabled so a second toggle cannot race the first.
+  protected readonly saving = signal<ReadonlySet<string>>(new Set());
   protected readonly confirmingDelete = signal<string | null>(null);
 
   constructor() {
@@ -41,6 +43,7 @@ export class AlertsPage {
 
   protected async setEnabled(alert: AlertDto, enabled: boolean): Promise<void> {
     this.setRowError(alert.id, null);
+    this.setSaving(alert.id, true);
     // The row shows the new value at once and goes back to the old one if the request fails.
     this.replace({ ...alert, enabled });
     try {
@@ -48,6 +51,8 @@ export class AlertsPage {
     } catch (error) {
       this.replace(alert);
       this.setRowError(alert.id, serverMessage(error));
+    } finally {
+      this.setSaving(alert.id, false);
     }
   }
 
@@ -68,8 +73,8 @@ export class AlertsPage {
     }
   }
 
-  protected cancelDelete(): void {
-    this.confirmingDelete.set(null);
+  protected cancelDelete(id: string): void {
+    if (this.confirmingDelete() === id) this.confirmingDelete.set(null);
   }
 
   private async load(): Promise<void> {
@@ -85,6 +90,18 @@ export class AlertsPage {
       (list) =>
         list?.map((item) => (item.id === alert.id ? alert : item)) ?? null,
     );
+  }
+
+  private setSaving(id: string, saving: boolean): void {
+    this.saving.update((ids) => {
+      const next = new Set(ids);
+      if (saving) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
   }
 
   private setRowError(id: string, message: string | null): void {

@@ -28,7 +28,8 @@
       </tr>
     </thead>
     <tbody hlmTBody>
-      @for (row of rows(); track row.alert.id) {
+      @for (row of rows(); track row.alert.id) { @let confirming =
+      confirmingDelete() === row.alert.id;
       <tr hlmTr>
         <td hlmTd class="font-medium">{{ row.alert.name }}</td>
         <td hlmTd>{{ categoryLabels[row.alert.category] }}</td>
@@ -42,6 +43,7 @@
         <td hlmTd>
           <hlm-switch
             [checked]="row.alert.enabled"
+            [disabled]="saving().has(row.alert.id)"
             [aria-label]="row.alert.name + ' enabled'"
             (checkedChange)="setEnabled(row.alert, $event)"
           />
@@ -53,38 +55,25 @@
               variant="outline"
               size="sm"
               [routerLink]="['/alerts', row.alert.id]"
+              [attr.aria-label]="'Edit alert ' + row.alert.name"
               >Edit</a
             >
-            @if (confirmingDelete() === row.alert.id) {
             <button
               hlmBtn
-              variant="destructive"
+              [variant]="confirming ? 'destructive' : 'ghost'"
               size="sm"
               type="button"
+              [attr.aria-label]="
+                (confirming ? 'Confirm delete alert ' : 'Delete alert ') +
+                row.alert.name
+              "
               (click)="remove(row.alert)"
+              (keydown.escape)="cancelDelete(row.alert.id)"
+              (blur)="cancelDelete(row.alert.id)"
             >
-              Confirm delete
+              {{ confirming ? 'Confirm delete' : 'Delete' }}
             </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              type="button"
-              (click)="cancelDelete()"
-            >
-              Cancel
-            </button>
-            } @else {
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              type="button"
-              (click)="remove(row.alert)"
-            >
-              Delete
-            </button>
-            } @if (rowErrors()[row.alert.id]; as message) {
+            @if (rowErrors()[row.alert.id]; as message) {
             <span role="status" class="text-destructive text-sm"
               >{{ message }}</span
             >

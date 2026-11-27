@@ -186,6 +186,31 @@ describe('AlertFormPage', () => {
     expect(navigate).toHaveBeenCalledWith('/alerts');
   });
 
+  it('keeps target ids that are not in the target list in the PUT body', async () => {
+    const unlisted = '00000000-0000-4000-8000-00000000000b';
+    spyOnNavigate();
+    const fixture = TestBed.createComponent(AlertFormPage);
+    fixture.componentRef.setInput('id', alert.id);
+    await fixture.whenStable();
+    http.expectOne(TARGETS_URL).flush([target]);
+    http
+      .expectOne(`/api/alerts/${alert.id}`)
+      .flush({ ...alert, targetIds: [target.id, unlisted] });
+    await settle(fixture);
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(field(root, '#alert-unlisted-targets').textContent).toContain(
+      'Also sends to 1 target not listed here.',
+    );
+    field<HTMLButtonElement>(root, 'button[type="submit"]').click();
+
+    const request = http.expectOne(`/api/alerts/${alert.id}`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body.targetIds).toEqual([target.id, unlisted]);
+    request.flush(alert);
+    await settle(fixture);
+  });
+
   it('links to the targets page when the user has no targets', async () => {
     const fixture = TestBed.createComponent(AlertFormPage);
     await fixture.whenStable();

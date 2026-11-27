@@ -37,7 +37,7 @@ export const regionLabels: Record<Region, string> = {
   oceania: 'Oceania',
 };
 
-// The raw value of the alert form. Lists are comma-separated text or one flag per option.
+// The raw value of the alert form. Keywords are one per line, so a keyword can hold a comma. Symbols are comma-separated.
 export interface AlertFormValue {
   name: string;
   category: Category;
@@ -66,9 +66,9 @@ function flags<K extends string>(
   ) as Record<K, boolean>;
 }
 
-function splitList(text: string): string[] {
+function splitList(text: string, separator: string | RegExp): string[] {
   return text
-    .split(',')
+    .split(separator)
     .map((item) => item.trim())
     .filter((item) => item !== '');
 }
@@ -103,14 +103,14 @@ export function toAlertInput(value: AlertFormValue): AlertInput {
       return {
         ...base,
         category: 'news',
-        filters: { keywords: splitList(value.news.keywords) },
+        filters: { keywords: splitList(value.news.keywords, /\r?\n/) },
       };
     case 'market':
       return {
         ...base,
         category: 'market',
         filters: {
-          symbols: splitList(value.market.symbols),
+          symbols: splitList(value.market.symbols, ','),
           direction: value.market.direction,
           minChangePct: value.market.minChangePct ?? 0,
         },
@@ -141,7 +141,7 @@ export function fromAlertDto(alert: AlertDto): AlertFormValue {
   };
   switch (alert.category) {
     case 'news':
-      value.news = { keywords: alert.filters.keywords.join(', ') };
+      value.news = { keywords: alert.filters.keywords.join('\n') };
       break;
     case 'market':
       value.market = {

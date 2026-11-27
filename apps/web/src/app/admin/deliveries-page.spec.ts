@@ -131,4 +131,32 @@ describe('DeliveriesPage', () => {
     );
     http.expectNone(LIST_URL);
   });
+
+  it('keeps the newer list when an older response arrives last', async () => {
+    const fixture = TestBed.createComponent(DeliveriesPage);
+    const root = fixture.nativeElement as HTMLElement;
+    await fixture.whenStable();
+    const select = root.querySelector<HTMLSelectElement>('#deliveries-status');
+    if (!select) throw new Error('missing status select');
+    select.value = 'failed';
+    select.dispatchEvent(new Event('change'));
+
+    const older = http.expectOne(LIST_URL);
+    const newer = http.expectOne(
+      (req) =>
+        req.url === '/api/admin/deliveries' &&
+        req.params.get('status') === 'failed',
+    );
+    newer.flush([failed]);
+    await settle(fixture);
+    older.flush(all);
+    await settle(fixture);
+
+    expect(root.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(
+      root.querySelector(
+        'button[aria-label="Retry delivery for Earthquake near Tokyo to Ops channel"]',
+      ),
+    ).not.toBeNull();
+  });
 });

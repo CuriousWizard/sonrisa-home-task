@@ -7,7 +7,6 @@ import {
   channels,
   LIMITS,
   TargetInput,
-  type ChannelField,
   type TargetDto,
 } from '@alerts/shared';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
@@ -25,13 +24,6 @@ interface RowMessage {
   text: string;
 }
 
-// ChannelField<C> is not assignable across channels, because its key type depends on C.
-interface ConfigField {
-  key: string;
-  label: string;
-  inputType: ChannelField['inputType'];
-}
-
 const channelIds = ChannelId.options;
 
 function hostOf(url: string): string {
@@ -44,9 +36,8 @@ function hostOf(url: string): string {
 
 // URL paths can hold the secret, as a Slack webhook path does, so URL fields show only the host.
 function destination(target: TargetDto): string {
-  const fields: readonly ConfigField[] = channels[target.channel].fields;
   const config = target.config as Record<string, unknown>;
-  return fields
+  return channels[target.channel].fields
     .map((field) => {
       const value = config[field.key];
       if (typeof value !== 'string') return '';
@@ -102,9 +93,7 @@ export class TargetsPage {
     this.form.controls.channel.valueChanges,
     { initialValue: this.form.controls.channel.value },
   );
-  protected readonly fields = computed<readonly ConfigField[]>(
-    () => channels[this.channel()].fields,
-  );
+  protected readonly fields = computed(() => channels[this.channel()].fields);
   protected readonly errors = signal<Record<string, string>>({});
   protected readonly serverError = signal<string | null>(null);
   protected readonly pending = signal(false);
@@ -159,8 +148,8 @@ export class TargetsPage {
     }
   }
 
-  protected cancelDelete(): void {
-    this.confirmingDelete.set(null);
+  protected cancelDelete(id: string): void {
+    if (this.confirmingDelete() === id) this.confirmingDelete.set(null);
   }
 
   protected async create(): Promise<void> {
@@ -178,7 +167,12 @@ export class TargetsPage {
       this.form.controls.name.reset();
       this.config.reset();
     } catch (error) {
-      this.serverError.set(serverMessage(error));
+      // The name passed the shared schema, so a 400 is the channel rejecting the config, such as the Slack allowlist.
+      if (error instanceof HttpErrorResponse && error.status === 400) {
+        this.errors.set({ config: serverMessage(error) });
+      } else {
+        this.serverError.set(serverMessage(error));
+      }
     } finally {
       this.pending.set(false);
     }
@@ -192,12 +186,20 @@ export class TargetsPage {
     }
   }
 
+  protected configErrorIds(key: string): string | null {
+    const errors = this.errors();
+    const ids = [
+      errors[`config.${key}`] ? `target-config-${key}-error` : null,
+      errors['config'] ? 'target-config-error' : null,
+    ].filter((id) => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
+  }
+
   private resetConfig(id: ChannelId): void {
     for (const key of Object.keys(this.config.controls)) {
       this.config.removeControl(key);
     }
-    const fields: readonly ConfigField[] = channels[id].fields;
-    for (const field of fields) {
+    for (const field of channels[id].fields) {
       this.config.addControl(field.key, this.fb.control(''));
     }
   }

@@ -30,15 +30,18 @@ function dto(input: AlertInput): AlertDto {
 }
 
 describe('toAlertInput', () => {
-  it('builds news filters from a comma list with spaces and empty entries', () => {
+  it('builds news filters from one keyword per line, dropping blank lines', () => {
     const input = toAlertInput(
-      form({ category: 'news', news: { keywords: ' quake , ,Tokyo,, C++ ' } }),
+      form({
+        category: 'news',
+        news: { keywords: ' quake \n\nTokyo\r\n \n C++, Rust ' },
+      }),
     );
 
     expect(input).toEqual({
       name: 'Watch',
       category: 'news',
-      filters: { keywords: ['quake', 'Tokyo', 'C++'] },
+      filters: { keywords: ['quake', 'Tokyo', 'C++, Rust'] },
       minSeverity: 3,
       targetIds: [targetA],
       enabled: true,
@@ -48,7 +51,7 @@ describe('toAlertInput', () => {
 
   it('sends an empty keyword list for blank text', () => {
     const input = toAlertInput(
-      form({ category: 'news', news: { keywords: ' , ' } }),
+      form({ category: 'news', news: { keywords: ' \n ' } }),
     );
 
     expect(input.filters).toEqual({ keywords: [] });
@@ -140,6 +143,14 @@ describe('fromAlertDto', () => {
       enabled: true,
     },
     {
+      name: 'Capital news',
+      category: 'news',
+      filters: { keywords: ['Washington, DC', 'Senate'] },
+      minSeverity: 1,
+      targetIds: [targetA],
+      enabled: true,
+    },
+    {
       name: 'Big drops',
       category: 'market',
       filters: {
@@ -177,8 +188,12 @@ describe('fromAlertDto', () => {
     expect(toAlertInput(fromAlertDto(dto(input)))).toEqual(input);
   });
 
-  it('writes list filters as comma-separated text', () => {
-    const value = fromAlertDto(dto(inputs[1]));
+  it('writes keywords one per line and symbols as comma-separated text', () => {
+    expect(fromAlertDto(dto(inputs[1])).news).toEqual({
+      keywords: 'Washington, DC\nSenate',
+    });
+
+    const value = fromAlertDto(dto(inputs[2]));
 
     expect(value.market).toEqual({
       symbols: 'AAPL, MSFT',

@@ -20,6 +20,8 @@ export class SettingsPage {
   protected readonly channels = signal<ChannelDto[] | null>(null);
   protected readonly loadError = signal<string | null>(null);
   protected readonly rowErrors = signal<Record<string, string>>({});
+  // Rows with a PATCH in flight. Their switch is disabled so a second toggle cannot race the first.
+  protected readonly saving = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
     void this.load();
@@ -79,13 +81,28 @@ export class SettingsPage {
           null,
       );
     this.setRowError(errorKey, null);
+    this.setSaving(errorKey, true);
     replace(optimistic);
     try {
       replace(await patch());
     } catch (error) {
       replace(previous);
       this.setRowError(errorKey, serverMessage(error));
+    } finally {
+      this.setSaving(errorKey, false);
     }
+  }
+
+  private setSaving(key: string, saving: boolean): void {
+    this.saving.update((keys) => {
+      const next = new Set(keys);
+      if (saving) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
   }
 
   private setRowError(key: string, message: string | null): void {

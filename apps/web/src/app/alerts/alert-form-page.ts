@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   computed,
@@ -85,6 +86,12 @@ export class AlertFormPage implements OnInit {
   protected readonly targets = signal<
     { id: string; name: string; channelLabel: string }[]
   >([]);
+  // The target list holds only the newest targets, so an alert can link to targets that have no checkbox.
+  protected readonly unlistedTargetIds = signal<string[]>([]);
+  protected readonly unlistedText = computed(() => {
+    const count = this.unlistedTargetIds().length;
+    return `Also sends to ${count} ${count === 1 ? 'target' : 'targets'} not listed here.`;
+  });
 
   // Kept as its own reference, because fb.group types a nested FormRecord as a FormGroup.
   private readonly targetFlags = this.fb.record<boolean>({});
@@ -109,9 +116,17 @@ export class AlertFormPage implements OnInit {
     this.errors.set({});
   }
 
+  protected removeUnlistedTargets(): void {
+    this.unlistedTargetIds.set([]);
+  }
+
   protected async submit(): Promise<void> {
     this.serverError.set(null);
-    const result = AlertInput.safeParse(toAlertInput(this.form.getRawValue()));
+    const value = toAlertInput(this.form.getRawValue());
+    const result = AlertInput.safeParse({
+      ...value,
+      targetIds: [...value.targetIds, ...this.unlistedTargetIds()],
+    });
     if (!result.success) {
       this.errors.set(alertErrors(result.error.issues));
       return;
@@ -127,7 +142,18 @@ export class AlertFormPage implements OnInit {
       }
       await this.router.navigateByUrl('/alerts');
     } catch (error) {
-      this.serverError.set(serverMessage(error));
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 400 &&
+        serverMessage(error).startsWith('targetIds')
+      ) {
+        this.errors.set({
+          targetIds:
+            'A chosen target no longer exists. Reload the page and choose again.',
+        });
+      } else {
+        this.serverError.set(serverMessage(error));
+      }
     } finally {
       this.pending.set(false);
     }
@@ -143,6 +169,10 @@ export class AlertFormPage implements OnInit {
       this.addTargetControls(targets);
       if (alert) {
         this.form.patchValue(fromAlertDto(alert));
+        const listed = new Set(targets.map((target) => target.id));
+        this.unlistedTargetIds.set(
+          alert.targetIds.filter((targetId) => !listed.has(targetId)),
+        );
       }
       this.state.set(targets.length === 0 ? 'no-targets' : 'ready');
     } catch (error) {

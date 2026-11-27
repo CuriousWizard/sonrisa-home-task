@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import {
   Router,
   RouterLink,
@@ -33,12 +33,16 @@ export class Shell {
     { path: '/admin/settings', label: 'Settings' },
     { path: '/admin/metrics', label: 'Metrics' },
   ];
+  protected readonly signOutError = signal<string | null>(null);
 
   protected async signOut(): Promise<void> {
+    this.signOutError.set(null);
     try {
       await this.auth.logout();
-    } finally {
-      await this.router.navigateByUrl('/login');
+    } catch {
+      this.signOutError.set('Sign-out failed. Try again.');
+      return;
     }
+    await this.router.navigateByUrl('/login');
   }
 }

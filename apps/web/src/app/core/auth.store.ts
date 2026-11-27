@@ -48,12 +48,16 @@ export class AuthStore {
     return user;
   }
 
+  // A 401 means the session has already ended. Other errors keep the user, because the cookie can still be valid.
   async logout(): Promise<void> {
     try {
       await firstValueFrom(this.http.post<void>('/api/auth/logout', null));
-    } finally {
-      this.clear();
+    } catch (error) {
+      if (!(error instanceof HttpErrorResponse && error.status === 401)) {
+        throw error;
+      }
     }
+    this.clear();
   }
 
   clear(): void {

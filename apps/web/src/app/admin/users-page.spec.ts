@@ -94,4 +94,44 @@ describe('UsersPage', () => {
       'No',
     ]);
   });
+
+  it('keeps the alerts of the user clicked last when an older response arrives last', async () => {
+    const fixture = TestBed.createComponent(UsersPage);
+    http.expectOne('/api/admin/users?limit=200').flush(users);
+    await settle(fixture);
+    const root = fixture.nativeElement as HTMLElement;
+    const show = (email: string): HTMLButtonElement => {
+      const button = root.querySelector<HTMLButtonElement>(
+        `button[aria-label="Show alerts of ${email}"]`,
+      );
+      if (!button) throw new Error(`missing Show alerts button for ${email}`);
+      return button;
+    };
+    const alertsOf = (userId: string) =>
+      http.expectOne(
+        (req) =>
+          req.url === '/api/admin/alerts' &&
+          req.params.get('userId') === userId,
+      );
+
+    show('admin@example.local').click();
+    const older = alertsOf(users[0].id);
+    show('user@example.local').click();
+    const newer = alertsOf(users[1].id);
+    newer.flush([alert]);
+    await settle(fixture);
+    older.flush([{ ...alert, id: 'other', name: 'Admin alert' }]);
+    await settle(fixture);
+
+    const section = root.querySelector('section');
+    expect(section?.querySelector('h2')?.textContent).toContain(
+      'user@example.local',
+    );
+    expect(
+      Array.from(
+        section?.querySelectorAll('tbody tr td:first-child') ?? [],
+        (cell) => cell.textContent?.trim(),
+      ),
+    ).toEqual(['Tech news']);
+  });
 });
