@@ -90,6 +90,28 @@ describe('loadConfig', () => {
     ).not.toThrow();
   });
 
+  it('rejects DELIVERY_LEASE_MS shorter than twice DELIVERY_SEND_TIMEOUT_MS', () => {
+    const message = configError(
+      exampleWith({
+        DELIVERY_LEASE_MS: '39999',
+        DELIVERY_SEND_TIMEOUT_MS: '20000',
+      }),
+    );
+    expect(message).toContain(
+      'DELIVERY_LEASE_MS: must be at least twice DELIVERY_SEND_TIMEOUT_MS',
+    );
+    expect(() =>
+      loadConfig(
+        exampleWith({
+          DELIVERY_LEASE_MS: '40000',
+          DELIVERY_SEND_TIMEOUT_MS: '20000',
+        }),
+      ),
+    ).not.toThrow();
+    const unset = { ...exampleWith({}), DELIVERY_SEND_TIMEOUT_MS: undefined };
+    expect(loadConfig(unset).DELIVERY_SEND_TIMEOUT_MS).toBe(20000);
+  });
+
   it('rejects an http: Slack prefix when NODE_ENV is production', () => {
     const message = configError(exampleWith({ NODE_ENV: 'production' }));
     expect(message).toContain(

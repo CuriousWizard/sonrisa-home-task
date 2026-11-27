@@ -1,10 +1,7 @@
 import { and, asc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { FastifyBaseLogger } from 'fastify';
-import {
-  sendThroughChannel,
-  type ChannelRegistry,
-} from '../channels/registry';
+import { sendThroughChannel, type ChannelRegistry } from '../channels/registry';
 import type { Config } from '../config';
 import type { Db } from '../db/client';
 import {
@@ -16,6 +13,7 @@ import {
 } from '../db/schema';
 import { computeBackoff } from './backoff';
 import { buildMessage, type MessageEvent } from './message';
+import { safeErrorLog } from '../safe-error-log';
 
 const CLAIM_LIMIT = 10;
 
@@ -28,6 +26,7 @@ export interface WorkerDeps {
     | 'DELIVERY_MAX_ATTEMPTS'
     | 'DELIVERY_BACKOFF_BASE_MS'
     | 'DELIVERY_LEASE_MS'
+    | 'DELIVERY_SEND_TIMEOUT_MS'
   >;
   logger: Pick<FastifyBaseLogger, 'debug' | 'error'>;
   random?: () => number;
@@ -43,6 +42,7 @@ export interface DeliveryWorker {
 interface ClaimedRow {
   id: string;
   attempts: number;
+  claimToken: string;
 }
 
 // Uses the database clock, the same one the claim compares against.
@@ -90,15 +90,22 @@ export function createWorker(deps: WorkerDeps): DeliveryWorker {
       .limit(CLAIM_LIMIT)
       // Without "of", the lock would also cover the channels row and skip every delivery behind it.
       .for('update', { of: deliveries, skipLocked: true });
-    return db
+    const rows = await db
       .update(deliveries)
       .set({
         status: 'sending',
         attempts: sql`${deliveries.attempts} + 1`,
         nextAttemptAt: msFromNow(config.DELIVERY_LEASE_MS),
+        claimToken: sql`gen_random_uuid()`,
       })
       .where(inArray(deliveries.id, due))
-      .returning({ id: deliveries.id, attempts: deliveries.attempts });
+      .returning({
+        id: deliveries.id,
+        attempts: deliveries.attempts,
+        claimToken: deliveries.claimToken,
+      });
+    // The claim has just set every token, so none is null.
+    return rows as ClaimedRow[];
   }
 
   async function loadDetails(ids: string[]) {
@@ -151,7 +158,7 @@ export function createWorker(deps: WorkerDeps): DeliveryWorker {
         and(
           eq(deliveries.id, row.id),
           eq(deliveries.status, 'sending'),
-          eq(deliveries.attempts, row.attempts),
+          eq(deliveries.claimToken, row.claimToken),
         ),
       )
       .returning({ id: deliveries.id });
@@ -160,6 +167,22 @@ export function createWorker(deps: WorkerDeps): DeliveryWorker {
         { deliveryId: row.id, attempts: row.attempts },
         'Dropped a stale delivery result',
       );
+    }
+  }
+
+  // Channel timeouts can be idle-only; this caps the total. The send itself is not cancelled.
+  async function withDeadline(send: () => Promise<void>): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error('send timed out')),
+        config.DELIVERY_SEND_TIMEOUT_MS,
+      );
+    });
+    try {
+      await Promise.race([send(), deadline]);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -175,23 +198,29 @@ export function createWorker(deps: WorkerDeps): DeliveryWorker {
       const detail = details.get(row.id);
       return detail ? [{ row, detail }] : [];
     });
-    const outcomes = await Promise.allSettled(
-      work.map(async ({ detail }) => {
-        // Ingest validated category with data, which the column types cannot express.
-        const event = detail as MessageEvent;
-        await sendThroughChannel(
-          channels,
-          detail,
-          buildMessage(event, detail.alertName),
-        );
-      }),
-    );
+    // Each result is written as soon as its own send settles.
     const writes = await Promise.allSettled(
-      work.map(({ row }, index) => recordResult(row, outcomes[index])),
+      work.map(async ({ row, detail }) => {
+        const [outcome] = await Promise.allSettled([
+          withDeadline(async () => {
+            // Ingest validated category with data, which the column types cannot express.
+            const event = detail as MessageEvent;
+            await sendThroughChannel(
+              channels,
+              detail,
+              buildMessage(event, detail.alertName),
+            );
+          }),
+        ]);
+        await recordResult(row, outcome);
+      }),
     );
     for (const write of writes) {
       if (write.status === 'rejected') {
-        logger.error({ err: write.reason }, 'Recording a delivery result failed');
+        logger.error(
+          { error: safeErrorLog(write.reason) },
+          'Recording a delivery result failed',
+        );
       }
     }
   }
@@ -204,7 +233,10 @@ export function createWorker(deps: WorkerDeps): DeliveryWorker {
       timer = undefined;
       running = tick()
         .catch((error: unknown) => {
-          logger.error({ err: error }, 'Delivery worker tick failed');
+          logger.error(
+            { error: safeErrorLog(error) },
+            'Delivery worker tick failed',
+          );
         })
         .finally(() => {
           running = undefined;

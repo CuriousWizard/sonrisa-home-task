@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   AlertInput,
   IdParam,
+  ListQuery,
   PatchEnabled,
   type AlertDto,
 } from '@alerts/shared';
@@ -47,12 +48,17 @@ async function targetIdsByAlert(
   return byAlert;
 }
 
-export async function listAlerts(db: Db, userId: string): Promise<AlertDto[]> {
+export async function listAlerts(
+  db: Db,
+  userId: string,
+  limit: number,
+): Promise<AlertDto[]> {
   const rows = await db
     .select()
     .from(alerts)
     .where(eq(alerts.userId, userId))
-    .orderBy(desc(alerts.createdAt));
+    .orderBy(desc(alerts.createdAt))
+    .limit(limit);
   const targetIds = await targetIdsByAlert(
     db,
     rows.map((row) => row.id),
@@ -90,9 +96,10 @@ async function linkTargets(
 export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireUser);
 
-  app.get('/', async (request) =>
-    listAlerts(app.db, currentUser(request).id),
-  );
+  app.get('/', async (request) => {
+    const { limit } = ListQuery.parse(request.query);
+    return listAlerts(app.db, currentUser(request).id, limit);
+  });
 
   app.post('/', async (request, reply) => {
     const user = currentUser(request);

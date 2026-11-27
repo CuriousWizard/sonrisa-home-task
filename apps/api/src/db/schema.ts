@@ -164,6 +164,8 @@ export const deliveries = pgTable(
     nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Set fresh by every claim; result writes must match it.
+    claimToken: uuid('claim_token'),
     lastError: text('last_error'),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     createdAt: createdAt(),

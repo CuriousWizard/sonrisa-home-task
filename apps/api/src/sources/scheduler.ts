@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from '../db/client';
 import { sources } from '../db/schema';
 import { ingestEvent } from '../events/ingest';
+import { safeErrorLog } from '../safe-error-log';
 import type { EventSource, NewEvent } from './source';
 
 export interface SchedulerDeps {
@@ -38,7 +39,10 @@ export function startScheduler(deps: SchedulerDeps): () => Promise<void> {
         await ingest(db, event);
       }
     } catch (error) {
-      log.error({ err: error, sourceId: source.id }, 'Source poll failed');
+      log.error(
+        { error: safeErrorLog(error), sourceId: source.id },
+        'Source poll failed',
+      );
     }
   }
 

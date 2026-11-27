@@ -101,6 +101,16 @@ describe('startScheduler', () => {
     await vi.advanceTimersByTimeAsync(DELAY_MS);
     await vi.waitFor(() => expect(on.nextDelayMs).toHaveBeenCalledTimes(2));
     expect(log.error).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledWith(
+      {
+        error: expect.objectContaining({
+          name: 'Error',
+          message: 'feed unavailable',
+        }),
+        sourceId: ON,
+      },
+      'Source poll failed',
+    );
     expect(ingest).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(DELAY_MS);

@@ -91,6 +91,7 @@ describe('admin routes', () => {
   let pool: Pool;
   let adminSession: string;
   let userSession: string;
+  let userAsAdminSession: string;
   let sessionUserIds: string[] = [];
   let userIds: string[] = [];
 
@@ -111,6 +112,11 @@ describe('admin routes', () => {
     sessionUserIds = [admin.id, user.id];
     adminSession = await app.sessions.sign(admin);
     userSession = await app.sessions.sign(user);
+    // A guard that read the role claim would let this token through.
+    userAsAdminSession = await app.sessions.sign({
+      id: user.id,
+      role: 'admin',
+    });
   });
 
   afterEach(async () => {
@@ -195,6 +201,7 @@ describe('admin routes', () => {
   async function newEvent(
     category: Category,
     createdAt = new Date(),
+    occurredAt = createdAt,
   ): Promise<string> {
     const [event] = await db
       .insert(events)
@@ -206,7 +213,7 @@ describe('admin routes', () => {
         summary: '',
         severity: 3,
         data: EVENT_DATA[category],
-        occurredAt: createdAt,
+        occurredAt,
         createdAt,
       })
       .returning();
@@ -289,6 +296,11 @@ describe('admin routes', () => {
       );
       const asUser = await call(userSession, method, path);
       expect(asUser.statusCode, `${method} ${url} as a user`).toBe(403);
+      const asClaimedAdmin = await call(userAsAdminSession, method, path);
+      expect(
+        asClaimedAdmin.statusCode,
+        `${method} ${url} as a user row with an admin role claim`,
+      ).toBe(403);
     }
   });
 
@@ -334,7 +346,7 @@ describe('admin routes', () => {
     expect(limited.json()).toEqual([expect.objectContaining({ id: newest.id })]);
   });
 
-  it("lists one user's alerts with their target ids", async () => {
+  it("lists one user's alerts with their target ids, cut at limit", async () => {
     const owner = await newOwner();
     await newOwner();
 
@@ -351,6 +363,24 @@ describe('admin routes', () => {
       }),
     ]);
     expect((await asAdmin('GET', '/api/admin/alerts')).statusCode).toBe(400);
+
+    const [newer] = await db
+      .insert(alerts)
+      .values({
+        userId: owner.id,
+        name: 'Newer',
+        category: 'news',
+        filters: { keywords: [] },
+        minSeverity: 1,
+        enabled: true,
+      })
+      .returning();
+    const limited = await asAdmin(
+      'GET',
+      `/api/admin/alerts?userId=${owner.id}&limit=1`,
+    );
+    expect(limited.statusCode).toBe(200);
+    expect(limited.json()).toEqual([expect.objectContaining({ id: newer.id })]);
   });
 
   it('lists events newest first, filtered by category and cut at limit', async () => {
@@ -456,6 +486,7 @@ describe('admin routes', () => {
         attempts: status === 'skipped' ? 0 : 3,
         nextAttemptAt: later,
         lastError: 'Slack responded 500',
+        claimToken: status === 'skipped' ? null : randomUUID(),
       });
 
       const response = await asAdmin(
@@ -474,6 +505,7 @@ describe('admin routes', () => {
         status: 'pending',
         attempts: 0,
         lastError: null,
+        claimToken: null,
       });
       expect(row.nextAttemptAt.getTime()).toBeLessThanOrEqual(
         Date.now() + CLOCK_SLACK_MS,
@@ -571,12 +603,13 @@ describe('admin routes', () => {
     await newDelivery(owner, 'email', { status: 'dead' });
     await newDelivery(owner, 'slack', { status: 'failed' });
     await newDelivery(owner, 'slack', { status: 'pending' });
-    await newEvent('market');
-    // Counted, these would change every total and both failure rates.
     const old = new Date(Date.now() - 25 * HOUR_MS);
+    // Only created_at decides the window: this event is counted, the disaster event is not.
+    await newEvent('market', new Date(), old);
+    // Counted, these would change every total and both failure rates.
     await newDelivery(owner, 'email', { status: 'dead', createdAt: old });
     await newDelivery(owner, 'slack', { status: 'dead', createdAt: old });
-    await newEvent('disaster', old);
+    await newEvent('disaster', old, new Date());
 
     const before = Date.now();
     const response = await asAdmin('GET', '/api/admin/metrics');

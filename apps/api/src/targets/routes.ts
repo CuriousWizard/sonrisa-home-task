@@ -2,12 +2,14 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import {
   IdParam,
+  ListQuery,
   TargetInput,
   type TargetDto,
   type TargetTestResult,
 } from '@alerts/shared';
 import { currentUser, requireUser } from '../auth/guards';
 import { channelById, sendThroughChannel } from '../channels/registry';
+import type { Config } from '../config';
 import { alertTargets, channels, targets } from '../db/schema';
 import { buildTestMessage } from '../delivery/message';
 import { HttpError } from '../http-error';
@@ -25,16 +27,27 @@ function toTargetDto(row: TargetRow): TargetDto {
   } as TargetDto;
 }
 
-export async function targetRoutes(app: FastifyInstance): Promise<void> {
+export async function targetRoutes(
+  app: FastifyInstance,
+  options: { config: Config },
+): Promise<void> {
+  // The test route sends mail or Slack posts at once, so it gets the auth routes' per-IP limit.
+  const rateLimit = {
+    max: options.config.AUTH_RATE_LIMIT_MAX,
+    timeWindow: '1 minute',
+  };
+
   app.addHook('preHandler', requireUser);
 
   app.get('/', async (request) => {
     const user = currentUser(request);
+    const { limit } = ListQuery.parse(request.query);
     const rows = await app.db
       .select()
       .from(targets)
       .where(eq(targets.userId, user.id))
-      .orderBy(desc(targets.createdAt));
+      .orderBy(desc(targets.createdAt))
+      .limit(limit);
     return rows.map(toTargetDto);
   });
 
@@ -90,37 +103,41 @@ export async function targetRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(204).send();
   });
 
-  app.post('/:id/test', async (request): Promise<TargetTestResult> => {
-    const user = currentUser(request);
-    const { id } = IdParam.parse(request.params);
-    const [target] = await app.db
-      .select()
-      .from(targets)
-      .where(and(eq(targets.id, id), eq(targets.userId, user.id)))
-      .limit(1);
-    if (!target) {
-      throw new HttpError(404, 'Target not found');
-    }
-    const [channel] = await app.db
-      .select({ enabled: channels.enabled })
-      .from(channels)
-      .where(eq(channels.id, target.channel))
-      .limit(1);
-    if (!channel?.enabled) {
-      throw new HttpError(409, 'Channel is disabled');
-    }
-    try {
-      await sendThroughChannel(
-        app.channels,
-        target,
-        buildTestMessage(target.name),
-      );
-      return { ok: true };
-    } catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Send failed',
-      };
-    }
-  });
+  app.post(
+    '/:id/test',
+    { config: { rateLimit } },
+    async (request): Promise<TargetTestResult> => {
+      const user = currentUser(request);
+      const { id } = IdParam.parse(request.params);
+      const [target] = await app.db
+        .select()
+        .from(targets)
+        .where(and(eq(targets.id, id), eq(targets.userId, user.id)))
+        .limit(1);
+      if (!target) {
+        throw new HttpError(404, 'Target not found');
+      }
+      const [channel] = await app.db
+        .select({ enabled: channels.enabled })
+        .from(channels)
+        .where(eq(channels.id, target.channel))
+        .limit(1);
+      if (!channel?.enabled) {
+        throw new HttpError(409, 'Channel is disabled');
+      }
+      try {
+        await sendThroughChannel(
+          app.channels,
+          target,
+          buildTestMessage(target.name),
+        );
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : 'Send failed',
+        };
+      }
+    },
+  );
 }

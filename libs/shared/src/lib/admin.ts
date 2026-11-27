@@ -4,7 +4,7 @@ import { ChannelId } from './channels';
 import { Category, DeliveryStatus } from './enums';
 import { UserDto } from './auth';
 
-export const AdminAlertsQuery = z.object({ userId: z.uuid() });
+export const AdminAlertsQuery = ListQuery.extend({ userId: z.uuid() });
 export type AdminAlertsQuery = z.infer<typeof AdminAlertsQuery>;
 
 export const AdminEventsQuery = ListQuery.extend({

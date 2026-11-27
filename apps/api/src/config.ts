@@ -78,6 +78,7 @@ const ConfigSchema = z
     DELIVERY_MAX_ATTEMPTS: positiveInt,
     DELIVERY_BACKOFF_BASE_MS: positiveInt,
     DELIVERY_LEASE_MS: positiveInt,
+    DELIVERY_SEND_TIMEOUT_MS: positiveInt.default(20_000),
     SOURCE_MIN_INTERVAL_MS: positiveInt,
     SOURCE_MAX_INTERVAL_MS: positiveInt,
     SEED_ADMIN_EMAIL: RegisterInput.shape.email,
@@ -91,6 +92,13 @@ const ConfigSchema = z
         code: 'custom',
         path: ['SOURCE_MIN_INTERVAL_MS'],
         message: 'must not be greater than SOURCE_MAX_INTERVAL_MS',
+      });
+    }
+    if (config.DELIVERY_LEASE_MS < 2 * config.DELIVERY_SEND_TIMEOUT_MS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DELIVERY_LEASE_MS'],
+        message: 'must be at least twice DELIVERY_SEND_TIMEOUT_MS',
       });
     }
     if (config.NODE_ENV !== 'production') {

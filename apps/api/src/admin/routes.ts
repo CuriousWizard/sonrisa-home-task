@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import {
   AdminAlertsQuery,
@@ -115,8 +125,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/alerts', adminOnly, async (request) => {
-    const { userId } = AdminAlertsQuery.parse(request.query);
-    return listAlerts(app.db, userId);
+    const { userId, limit } = AdminAlertsQuery.parse(request.query);
+    return listAlerts(app.db, userId, limit);
   });
 
   app.get('/events', adminOnly, async (request) => {
@@ -156,6 +166,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
           attempts: 0,
           nextAttemptAt: sql`now()`,
           lastError: null,
+          claimToken: null,
         })
         .where(
           and(eq(deliveries.id, id), inArray(deliveries.status, RETRYABLE)),
@@ -206,10 +217,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/channels', adminOnly, async () => {
-    const rows = await app.db
-      .select()
-      .from(channels)
-      .orderBy(asc(channels.id));
+    const rows = await app.db.select().from(channels).orderBy(asc(channels.id));
     return rows.map(toChannelDto);
   });
 

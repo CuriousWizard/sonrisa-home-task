@@ -151,6 +151,10 @@ describe('alert routes', () => {
     expect(list.statusCode).toBe(200);
     expect(list.json()).toHaveLength(3);
     expect(list.json()).toEqual(expect.arrayContaining(created));
+
+    const limited = await call(session, 'GET', '/api/alerts?limit=2');
+    expect(limited.statusCode).toBe(200);
+    expect(limited.json()).toEqual([created[2], created[1]]);
   });
 
   it('rejects filters of another category with 400', async () => {
@@ -263,7 +267,8 @@ describe('alert routes', () => {
     const alertId = await createAlert(session, newsAlert([first, second]));
     const url = `/api/alerts/${alertId}`;
 
-    const replacement = marketAlert([second, third]);
+    // The created alert is enabled, so a PUT that kept enabled would fail the checks below.
+    const replacement = { ...marketAlert([second, third]), enabled: false };
     const updated = await call(session, 'PUT', url, replacement);
     expect(updated.statusCode).toBe(200);
     expect(updated.json()).toMatchObject({ ...replacement, id: alertId });
@@ -273,6 +278,7 @@ describe('alert routes', () => {
       ...replacement,
       targetIds: expect.arrayContaining([second, third]),
     });
+    expect(fetched.enabled).toBe(false);
     expect(fetched.targetIds).toHaveLength(2);
     expect(await storedTargetIds(alertId)).toEqual([second, third].sort());
   });

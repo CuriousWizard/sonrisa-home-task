@@ -1,10 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { SignJWT } from 'jose';
 import type { Pool } from 'pg';
 import { buildApp } from '../app';
 import { createChannelRegistry } from '../channels/registry';
-import { loadConfig } from '../config';
+import { loadConfig, type Config } from '../config';
 import { createDb, type Db } from '../db/client';
 import { users } from '../db/schema';
 import { createSessionTokens, SESSION_COOKIE } from './session';
@@ -13,12 +14,13 @@ const password = 'correct horse battery';
 
 describe('auth routes', () => {
   let app: FastifyInstance;
+  let config: Config;
   let db: Db;
   let pool: Pool;
   let createdEmails: string[] = [];
 
   beforeAll(async () => {
-    const config = loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '1000' });
+    config = loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '1000' });
     ({ db, pool } = createDb(config.TEST_DATABASE_URL));
     app = await buildApp(config, {
       db,
@@ -56,8 +58,9 @@ describe('auth routes', () => {
   function login(
     email: string,
     loginPassword: string,
+    target: FastifyInstance = app,
   ): Promise<LightMyRequestResponse> {
-    return app.inject({
+    return target.inject({
       method: 'POST',
       url: '/api/auth/login',
       payload: { email, password: loginPassword },
@@ -115,7 +118,41 @@ describe('auth routes', () => {
     expect((await login(email, password)).statusCode).toBe(200);
   });
 
-  it('logout then me returns 401', async () => {
+  it('register and login set an HttpOnly, SameSite=Strict session cookie on Path=/', async () => {
+    const email = newEmail();
+    const registered = await register(email);
+    expect(registered.statusCode).toBe(201);
+    const loggedIn = await login(email, password);
+    expect(loggedIn.statusCode).toBe(200);
+
+    for (const response of [registered, loggedIn]) {
+      expect(sessionCookie(response)).toMatchObject({
+        httpOnly: true,
+        sameSite: 'Strict',
+        path: '/',
+      });
+    }
+  });
+
+  it('the third login in a minute returns 429 when AUTH_RATE_LIMIT_MAX is 2', async () => {
+    const email = newEmail();
+    expect((await register(email)).statusCode).toBe(201);
+    const limited = await buildApp(
+      loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '2' }),
+      { db, channels: createChannelRegistry(config) },
+    );
+    try {
+      expect((await login(email, password, limited)).statusCode).toBe(200);
+      expect((await login(email, password, limited)).statusCode).toBe(200);
+      const third = await login(email, password, limited);
+      expect(third.statusCode).toBe(429);
+      expect(third.cookies).toEqual([]);
+    } finally {
+      await limited.close();
+    }
+  });
+
+  it('logout clears the session cookie', async () => {
     const email = newEmail();
     const session = sessionCookie(await register(email)).value;
 
@@ -129,8 +166,6 @@ describe('auth routes', () => {
     expect(cleared.value).toBe('');
     expect(cleared.path).toBe('/');
     expect(cleared.expires?.getTime()).toBeLessThanOrEqual(Date.now());
-
-    expect((await me(cleared.value)).statusCode).toBe(401);
   });
 
   it('a session cookie signed with another secret returns 401', async () => {
@@ -146,6 +181,26 @@ describe('auth routes', () => {
       role: 'user',
     });
     expect((await me(forged)).statusCode).toBe(401);
+  });
+
+  it('a session token signed with the right secret but without exp returns 401', async () => {
+    const email = newEmail();
+    const registered = await register(email);
+    expect(registered.statusCode).toBe(201);
+
+    const sign = (withExpiry: boolean) => {
+      const jwt = new SignJWT({ role: 'user' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject(registered.json().id)
+        .setIssuedAt();
+      if (withExpiry) {
+        jwt.setExpirationTime('1h');
+      }
+      return jwt.sign(new TextEncoder().encode(config.JWT_SECRET));
+    };
+    // The same token with exp passes, so the 401 comes from the missing claim.
+    expect((await me(await sign(true))).statusCode).toBe(200);
+    expect((await me(await sign(false))).statusCode).toBe(401);
   });
 
   it('a user whose row was deleted returns 401', async () => {

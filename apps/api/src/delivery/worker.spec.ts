@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { ChannelId, EmailConfig, SlackConfig } from '@alerts/shared';
 import type { NotificationMessage } from '../channels/channel';
@@ -24,6 +24,27 @@ const BASE_MS = 1000;
 const CLOCK_SLACK_MS = 250;
 
 type DeliveryInsert = typeof deliveries.$inferInsert;
+
+interface HeldSend {
+  address: string;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+async function finishesWithin(
+  promise: Promise<unknown>,
+  ms: number,
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), ms);
+  });
+  try {
+    return await Promise.race([promise.then(() => true), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 describe('delivery worker', () => {
   let db: Db;
@@ -73,6 +94,7 @@ describe('delivery worker', () => {
         DELIVERY_MAX_ATTEMPTS: 5,
         DELIVERY_BACKOFF_BASE_MS: BASE_MS,
         DELIVERY_LEASE_MS: 60_000,
+        DELIVERY_SEND_TIMEOUT_MS: 20_000,
         ...config,
       },
       logger,
@@ -156,6 +178,32 @@ describe('delivery worker', () => {
     return send.mock.calls.filter(
       ([config]) => (config as EmailConfig).address === address,
     ).length;
+  }
+
+  // Every send waits until the test settles it.
+  function holdSends(): HeldSend[] {
+    const held: HeldSend[] = [];
+    send.mockImplementation(
+      (config) =>
+        new Promise<void>((resolve, reject) => {
+          held.push({ address: (config as EmailConfig).address, resolve, reject });
+        }),
+    );
+    return held;
+  }
+
+  // Mirrors POST /api/admin/deliveries/:id/retry.
+  async function retryAsAdmin(id: string) {
+    await db
+      .update(deliveries)
+      .set({
+        status: 'pending',
+        attempts: 0,
+        nextAttemptAt: sql`now()`,
+        lastError: null,
+        claimToken: null,
+      })
+      .where(eq(deliveries.id, id));
   }
 
   it('sends a pending row and marks it sent with attempts 1', async () => {
@@ -279,34 +327,47 @@ describe('delivery worker', () => {
     expect(sendsTo(address)).toBe(0);
   });
 
-  it('drops a stale result when a newer claim owns the row', async () => {
-    let finishSend: (() => void) | undefined;
-    send.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finishSend = resolve;
-        }),
-    );
+  it('drops the result of a send whose row was reclaimed, retried by an admin and claimed again with the same attempt count', async () => {
+    const held = holdSends();
     const { id } = await newDelivery();
 
-    const tick = newWorker().tick();
-    await vi.waitFor(() => expect(finishSend).toBeDefined());
-    await db
-      .update(deliveries)
-      .set({ attempts: 2, nextAttemptAt: new Date(Date.now() + 60_000) })
-      .where(eq(deliveries.id, id));
-    finishSend?.();
-    await tick;
+    // Worker A's lease ends while its send is still running.
+    const tickA = newWorker({ DELIVERY_LEASE_MS: 1 }).tick();
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    const claimA = await load(id);
+    expect(claimA).toMatchObject({ status: 'sending', attempts: 1 });
+
+    const tickB = newWorker().tick();
+    await vi.waitFor(() => expect(held).toHaveLength(2));
+    held[1].reject(new Error('Slack responded 500'));
+    await tickB;
+    expect(await load(id)).toMatchObject({ status: 'failed', attempts: 2 });
+
+    await retryAsAdmin(id);
+
+    const tickC = newWorker().tick();
+    await vi.waitFor(() => expect(held).toHaveLength(3));
+    const claimC = await load(id);
+    expect(claimC).toMatchObject({ status: 'sending', attempts: 1 });
+    expect(claimC.claimToken).not.toBe(claimA.claimToken);
+
+    held[0].resolve();
+    await tickA;
 
     expect(await load(id)).toMatchObject({
       status: 'sending',
-      attempts: 2,
+      attempts: 1,
+      claimToken: claimC.claimToken,
       sentAt: null,
     });
     expect(logger.debug).toHaveBeenCalledWith(
       { deliveryId: id, attempts: 1 },
       'Dropped a stale delivery result',
     );
+
+    held[2].resolve();
+    await tickC;
+    expect(await load(id)).toMatchObject({ status: 'sent', attempts: 1 });
   });
 
   it('leaves a row pending while its channel is disabled and sends it once the channel is enabled', async () => {
@@ -324,12 +385,78 @@ describe('delivery worker', () => {
     expect(sendsTo(address)).toBe(1);
   });
 
-  it('sends a pending row once when two workers tick at the same time', async () => {
+  it('does not send a row twice when two workers tick at the same time, because the claim locks the row', async () => {
     const { id, address } = await newDelivery();
 
     await Promise.all([newWorker().tick(), newWorker().tick()]);
 
     expect(sendsTo(address)).toBe(1);
     expect(await load(id)).toMatchObject({ status: 'sent', attempts: 1 });
+  });
+
+  it('skips a row locked by another transaction and sends the next row without waiting', async () => {
+    const locked = await newDelivery();
+    const free = await newDelivery();
+    const client = await pool.connect();
+    let tick: Promise<void> | undefined;
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT id FROM deliveries WHERE id = $1 FOR UPDATE', [
+        locked.id,
+      ]);
+
+      tick = newWorker().tick();
+
+      expect(await finishesWithin(tick, 1000)).toBe(true);
+      expect(sendsTo(free.address)).toBe(1);
+      expect(sendsTo(locked.address)).toBe(0);
+      expect(await load(locked.id)).toMatchObject({
+        status: 'pending',
+        attempts: 0,
+      });
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+      await tick;
+    }
+  });
+
+  it('writes the result of a finished send while another send in the batch is still running', async () => {
+    const slow = await newDelivery();
+    const fast = await newDelivery();
+    let finishSlow: (() => void) | undefined;
+    send.mockImplementation((config) =>
+      (config as EmailConfig).address === slow.address
+        ? new Promise<void>((resolve) => {
+            finishSlow = resolve;
+          })
+        : Promise.resolve(),
+    );
+
+    const tick = newWorker().tick();
+
+    await vi.waitFor(async () =>
+      expect(await load(fast.id)).toMatchObject({ status: 'sent' }),
+    );
+    expect(finishSlow).toBeDefined();
+    expect(await load(slow.id)).toMatchObject({ status: 'sending' });
+
+    finishSlow?.();
+    await tick;
+    expect(await load(slow.id)).toMatchObject({ status: 'sent', attempts: 1 });
+  });
+
+  it('marks a send that outlasts DELIVERY_SEND_TIMEOUT_MS failed with "send timed out"', async () => {
+    send.mockImplementation(() => new Promise<void>(() => undefined));
+    const { id } = await newDelivery();
+
+    await newWorker({ DELIVERY_SEND_TIMEOUT_MS: 50 }).tick();
+
+    expect(await load(id)).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      lastError: 'send timed out',
+      sentAt: null,
+    });
   });
 });

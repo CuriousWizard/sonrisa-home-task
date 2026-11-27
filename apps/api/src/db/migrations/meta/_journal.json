@@ -8,6 +8,13 @@
       "when": 1795766377497,
       "tag": "0000_shiny_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795772875427,
+      "tag": "0001_delivery_claim_token",
+      "breakpoints": true
     }
   ]
 }

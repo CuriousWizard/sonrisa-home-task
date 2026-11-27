@@ -1,10 +1,28 @@
+import { randomBytes, scryptSync } from 'node:crypto';
 import { hashPassword, verifyPassword } from './password';
 
 describe('password', () => {
   it('verifies the right password', async () => {
     const stored = await hashPassword('correct horse battery');
+    expect(stored.split('$').slice(1, 4)).toEqual(['16384', '8', '5']);
     await expect(verifyPassword('correct horse battery', stored)).resolves.toBe(
       true,
+    );
+  });
+
+  it('verifies a hash stored with the earlier p=1 setting', async () => {
+    const salt = randomBytes(16);
+    const hash = scryptSync('correct horse battery', salt, 64, {
+      N: 16384,
+      r: 8,
+      p: 1,
+    });
+    const stored = `scrypt$16384$8$1$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+    await expect(verifyPassword('correct horse battery', stored)).resolves.toBe(
+      true,
+    );
+    await expect(verifyPassword('wrong horse battery', stored)).resolves.toBe(
+      false,
     );
   });
 

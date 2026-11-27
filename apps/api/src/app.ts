@@ -11,6 +11,7 @@ import type { ChannelRegistry } from './channels/registry';
 import type { Config } from './config';
 import type { Db } from './db/client';
 import { devRoutes } from './dev/routes';
+import { safeErrorLog } from './safe-error-log';
 import { targetRoutes } from './targets/routes';
 
 declare module 'fastify' {
@@ -90,8 +91,7 @@ export async function buildApp(
       // Rethrowing hands the error to Fastify's default handler.
       throw error;
     }
-    // A 500 message can hold SQL and parameters, so only the log gets it.
-    request.log.error({ err: error }, 'request failed');
+    request.log.error({ error: safeErrorLog(error) }, 'request failed');
     return reply.code(500).send({
       statusCode: 500,
       error: 'Internal Server Error',
@@ -101,7 +101,7 @@ export async function buildApp(
 
   app.get('/api/health', async () => ({ status: 'ok' }));
   await app.register(authRoutes, { prefix: '/api/auth', config });
-  await app.register(targetRoutes, { prefix: '/api/targets' });
+  await app.register(targetRoutes, { prefix: '/api/targets', config });
   await app.register(alertRoutes, { prefix: '/api/alerts' });
   await app.register(adminRoutes, { prefix: '/api/admin' });
   if (config.NODE_ENV !== 'production') {

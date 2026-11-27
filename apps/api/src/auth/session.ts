@@ -27,6 +27,7 @@ export function createSessionTokens(secret: string): SessionTokens {
       try {
         const { payload } = await jwtVerify(token, key, {
           algorithms: [ALGORITHM],
+          requiredClaims: ['exp', 'sub'],
         });
         const userId = UserId.safeParse(payload.sub);
         return userId.success ? userId.data : null;

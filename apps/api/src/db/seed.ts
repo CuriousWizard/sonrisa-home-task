@@ -1,6 +1,7 @@
 import type { Role } from '@alerts/shared';
 import { hashPassword } from '../auth/password';
 import { loadConfig, loadRootEnvFile } from '../config';
+import { safeErrorLog } from '../safe-error-log';
 import { createDb, type Db } from './client';
 import { users } from './schema';
 
@@ -45,6 +46,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
+  console.error('Seeding failed:', safeErrorLog(error));
   process.exitCode = 1;
 });

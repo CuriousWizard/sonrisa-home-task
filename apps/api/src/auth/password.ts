@@ -7,7 +7,8 @@ import {
 
 const N = 16384;
 const R = 8;
-const P = 1;
+// OWASP lists N=2^14, r=8, p=5 as a minimum. Stored hashes keep their own parameters.
+const P = 5;
 const KEY_LENGTH = 64;
 const SALT_LENGTH = 16;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;

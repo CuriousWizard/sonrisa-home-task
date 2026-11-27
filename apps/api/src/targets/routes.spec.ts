@@ -18,15 +18,16 @@ describe('target routes', () => {
   let app: FastifyInstance;
   let db: Db;
   let pool: Pool;
+  let fakeChannels: ChannelRegistry;
   let userIds: string[] = [];
   const emailSends = vi.fn<
     (config: EmailConfig, message: NotificationMessage) => Promise<void>
   >(async () => undefined);
 
   beforeAll(async () => {
-    const config = loadConfig(process.env);
+    const config = loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '1000' });
     ({ db, pool } = createDb(config.TEST_DATABASE_URL));
-    const fakeChannels: ChannelRegistry = {
+    fakeChannels = {
       email: { id: 'email', configSchema: EmailConfig, send: emailSends },
       slack: createSlackChannel(['https://hooks.slack.com/services/']),
     };
@@ -105,6 +106,11 @@ describe('target routes', () => {
     const list = await call(session, 'GET', '/api/targets');
     expect(list.statusCode).toBe(200);
     expect(list.json()).toEqual([created.json()]);
+
+    const newer = await createEmailTarget(session);
+    const limited = await call(session, 'GET', '/api/targets?limit=1');
+    expect(limited.statusCode).toBe(200);
+    expect(limited.json()).toEqual([expect.objectContaining({ id: newer })]);
   });
 
   it('rejects a Slack target outside the allowlist with 400', async () => {
@@ -197,6 +203,29 @@ describe('target routes', () => {
       ok: false,
       error: 'SMTP error: ECONNECTION',
     });
+  });
+
+  it('the test route returns 429 on the third send in a minute when AUTH_RATE_LIMIT_MAX is 2', async () => {
+    const { session } = await newUser();
+    const targetId = await createEmailTarget(session);
+    const limited = await buildApp(
+      loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '2' }),
+      { db, channels: fakeChannels },
+    );
+    try {
+      const send = () =>
+        limited.inject({
+          method: 'POST',
+          url: `/api/targets/${targetId}/test`,
+          cookies: { [SESSION_COOKIE]: session },
+        });
+      expect((await send()).statusCode).toBe(200);
+      expect((await send()).statusCode).toBe(200);
+      expect((await send()).statusCode).toBe(429);
+      expect(emailSends).toHaveBeenCalledTimes(2);
+    } finally {
+      await limited.close();
+    }
   });
 
   it("the test route returns 404 for another user's target", async () => {
