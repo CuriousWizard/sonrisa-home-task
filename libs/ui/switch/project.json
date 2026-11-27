@@ -1,0 +1,10 @@
+{
+  "name": "switch",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/ui/switch/src",
+  "prefix": "hlm",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project switch --web",
+  "targets": {}
+}

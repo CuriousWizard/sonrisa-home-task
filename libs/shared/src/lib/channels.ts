@@ -12,30 +12,37 @@ export const SlackConfig = z.object({
 });
 export type SlackConfig = z.infer<typeof SlackConfig>;
 
-export interface ChannelField {
-  key: string;
+export interface ChannelField<C extends object = Record<string, unknown>> {
+  key: Extract<keyof C, string>;
   label: string;
   inputType: 'text' | 'email' | 'url';
 }
 
-export interface ChannelDefinition {
-  configSchema: z.ZodObject;
+export interface ChannelDefinition<S extends z.ZodObject = z.ZodObject> {
+  configSchema: S;
   label: string;
-  fields: readonly ChannelField[];
+  fields: readonly ChannelField<z.output<S>>[];
+}
+
+// Infers the schema per entry, so a field key that is not in the config fails to compile.
+function defineChannel<S extends z.ZodObject>(
+  definition: ChannelDefinition<S>,
+): ChannelDefinition<S> {
+  return definition;
 }
 
 export const channels = {
-  email: {
+  email: defineChannel({
     configSchema: EmailConfig,
     label: 'Email',
     fields: [{ key: 'address', label: 'Email address', inputType: 'email' }],
-  },
-  slack: {
+  }),
+  slack: defineChannel({
     configSchema: SlackConfig,
     label: 'Slack',
     fields: [{ key: 'webhookUrl', label: 'Webhook URL', inputType: 'url' }],
-  },
-} satisfies Record<string, ChannelDefinition>;
+  }),
+};
 
 export type ChannelId = keyof typeof channels;
 const channelIds = Object.keys(channels) as [ChannelId, ...ChannelId[]];

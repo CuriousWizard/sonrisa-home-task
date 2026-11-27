@@ -1,0 +1,39 @@
+<header class="border-b">
+  <div class="mx-auto flex h-14 max-w-6xl items-center gap-8 px-6">
+    <span class="font-semibold">Alerts</span>
+    <nav aria-label="Main" class="flex items-center gap-5 text-sm">
+      @for (link of userLinks; track link.path) {
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="text-primary font-medium"
+        ariaCurrentWhenActive="page"
+        class="text-muted-foreground hover:text-foreground"
+        >{{ link.label }}</a
+      >
+      } @if (auth.isAdmin()) { @for (link of adminLinks; track link.path) {
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="text-primary font-medium"
+        ariaCurrentWhenActive="page"
+        class="text-muted-foreground hover:text-foreground"
+        >{{ link.label }}</a
+      >
+      } }
+    </nav>
+    <div class="ml-auto flex items-center gap-4 text-sm">
+      <span class="text-muted-foreground">{{ auth.user()?.email }}</span>
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        type="button"
+        (click)="signOut()"
+      >
+        Sign out
+      </button>
+    </div>
+  </div>
+</header>
+<main class="mx-auto max-w-6xl px-6 py-8">
+  <router-outlet />
+</main>
