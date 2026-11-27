@@ -167,3 +167,17 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Check: while saving the M2 reviews, the orchestrator compared the saved text with the replies in its context.
 - Result: all four review files were rewritten with the exact replies. The rule in `AGENTS.md` already exempted reviewer replies from the writing rules. The orchestrator had applied those rules anyway.
 - Status: corrected.
+
+## V-016 Reviewer files against the Opus 5.5 prompting guide
+
+- User input, in a separate chat on a git worktree: "I found this documentation about prompting opus 5.5: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5 Check if the created reviewer agent is using those best practices. Additionally, include somewhere those points for later. Use worktree for your work."
+- AI output: the reviewer body in `.github/agents/reviewer-opus.agent.md` and `.github/agents/reviewer-gpt.agent.md`, written by the orchestrator in M0.
+- Check: compared the body with each section of the guide. Read the effort that the VS Code chat session records hold for each reviewer call in the M1 session.
+- Result:
+  - The body asks for no written reasoning and has no "think carefully" line. Both follow the guide.
+  - The body did not say that its last message is the review, and it did not list the files to read first. D-029 adds both.
+  - reviewer-opus ran all three M1 calls at `xhigh`. reviewer-gpt ran all four at `medium`. The guide says to start at `medium` and to keep `xhigh` for measured gains. V-005 recorded only the GPT-6.2 Sol setting.
+  - The guide's section on an early end of turn may explain the two M2 implementer runs that returned no report (V-011).
+- Open: the effort for Claude Opus 5.5 is a VS Code setting that only the user can change. The two defects in V-007 give a small test. Run the M1 design review on reviewer-opus at `medium` and check whether it still finds both.
+- Numbering: this entry was V-011 on the `docs/opus-5-5-prompting` branch. It was renumbered when the branch came into main, because main had used V-011 to V-015 for M2 in the meantime.
+- Status: corrected for the body. The effort question is open.

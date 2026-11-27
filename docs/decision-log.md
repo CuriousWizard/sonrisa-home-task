@@ -168,3 +168,11 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: replace the generated `@fastify/autoload` bootstrap in M2, replace it in M3.
 - Decided by: orchestrator. Both reviewers asked for `buildApp(config)` as in the design.
 - Reason: M3 writes the config loader and every route, so it rewrites `app.ts` anyway. Doing it in M2 would mean writing it twice. The M3 prompt must say to remove `@fastify/autoload` and `@fastify/sensible`.
+
+## D-029 Reviewer files follow the Opus 5.5 prompting guide
+
+- Options: keep the reviewer files as they are, add lines for Opus 5.5 to `reviewer-opus` only, add model-neutral lines to both files.
+- Decided by: orchestrator, after the user asked for a check of the reviewer against the guide. See V-016.
+- Reason: the guide describes two behaviours that would hurt a reviewer subagent. The model can end its turn with a progress note, which returns a partial review. It also starts work quickly and reads only what the task names. Both new lines are model-neutral, so both files get them and the bodies stay identical, as D-012 requires.
+- Consequence: reviews from M3 on use the new body. The M1 and M2 reviews used the old one, because the change was made on a separate branch while M2 ran on main. The notes on the guide are in `docs/prompting-opus-5-5.md`.
+- Numbering: this entry was D-026 on the `docs/opus-5-5-prompting` branch. It was renumbered when the branch came into main.

@@ -108,6 +108,21 @@ davidt@HUERDWN110468:~/project/sonrisa-home-task$ npm run setup && docker compos
 Stop when you finished with M2
 ```
 
+## 007 Opus 5.5 prompting check, separate chat on a worktree
+
+The user sent this prompt in a separate chat that worked on the `docs/opus-5-5-prompting` branch in the `sonrisa-opus-prompting` worktree. The text comes from the quote in V-016 of the AI review log.
+
+```text
+I found this documentation about prompting opus 5.5: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5 Check if the created reviewer agent is using those best practices. Additionally, include somewhere those points for later. Use worktree for your work.
+```
+
+## 008 Bring the prompting updates into main
+
+```text
+I want you to look at sonrisa-opus-prompting worktree. There you will see prompting updates for opus 5.5.
+Create a commit including those updates here in main.
+```
+
 ## Chat exports
 
 | File                           | Covers                                   |

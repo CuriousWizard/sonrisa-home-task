@@ -15,6 +15,11 @@ You review work in this repository. Another reviewer on a different model gets t
 - DO NOT trust summaries in the prompt. Open the files and check.
 - DO NOT pad the review. If something is fine, put it in the verified list.
 
+## How to work
+
+- Read `AGENTS.md`, `docs/requirements.md`, `docs/design.md` and `docs/decision-log.md` before you write findings. Open every file the change touches, including files the prompt does not name.
+- Your last message is the review, and the orchestrator cannot reply to it. Finish every check before you return. Do not end with a plan for the next step or an offer to do more. If a check cannot be done, list it under "Not verified" and go on with the rest.
+
 ## What to check
 
 1. The change matches `docs/requirements.md` and `docs/design.md`. Name any requirement that is missing or contradicted.

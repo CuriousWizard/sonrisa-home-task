@@ -8,16 +8,17 @@ An alerting app. Users create alert rules for world events in three categories: 
 
 The repository is an interview submission. Reviewers grade the process, so the process artifacts matter as much as the code.
 
-| File                    | Purpose                                                  |
-| ----------------------- | -------------------------------------------------------- |
-| `docs/plan.md`          | Milestones, order, cut list                              |
-| `docs/requirements.md`  | How the brief was interpreted, assumptions, out of scope |
-| `docs/design.md`        | Architecture, data model, API                            |
-| `docs/decision-log.md`  | Decisions with options and reasons                       |
-| `docs/ai-review-log.md` | AI output that was checked, rejected or corrected        |
-| `docs/reviews/`         | Reviewer replies, unedited                               |
-| `prompts/prompt-log.md` | User prompts, word for word                              |
-| `prompts/subagents/`    | Prompts the orchestrator sent to subagents               |
+| File                         | Purpose                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| `docs/plan.md`               | Milestones, order, cut list                              |
+| `docs/requirements.md`       | How the brief was interpreted, assumptions, out of scope |
+| `docs/design.md`             | Architecture, data model, API                            |
+| `docs/decision-log.md`       | Decisions with options and reasons                       |
+| `docs/ai-review-log.md`      | AI output that was checked, rejected or corrected        |
+| `docs/reviews/`              | Reviewer replies, unedited                               |
+| `docs/prompting-opus-5-5.md` | Prompting notes for Claude Opus 5.5 and where they apply |
+| `prompts/prompt-log.md`      | User prompts, word for word                              |
+| `prompts/subagents/`         | Prompts the orchestrator sent to subagents               |
 
 Read `docs/requirements.md` and `docs/design.md` before changing code.
 
@@ -55,7 +56,7 @@ The two reviewer files in `.github/agents/` share the same body. Only the model 
 
 ## Milestone workflow
 
-1. The orchestrator saves the subagent prompt to `prompts/subagents/NNN-<slug>.md` before sending it.
+1. The orchestrator checks the subagent prompt against `docs/prompting-opus-5-5.md`, then saves it to `prompts/subagents/NNN-<slug>.md` before sending it.
 2. An implementer subagent does the task.
 3. The orchestrator checks the result itself: reads the diff, runs build and tests, and checks package versions with `npm view`.
 4. Both reviewers get the same review prompt and run in parallel.
