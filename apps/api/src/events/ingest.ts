@@ -81,20 +81,18 @@ export async function matchEvent(tx: Tx, event: EventRow): Promise<number> {
         .where(eq(channels.enabled, true))
     ).map((row) => row.id),
   );
-  const rows = matched.map(
-    ({ alertId, targetId, channel }): DeliveryInsert => {
-      const enabled = enabledChannels.has(channel);
-      return {
-        alertId,
-        eventId: event.id,
-        targetId,
-        channel,
-        status: enabled ? 'pending' : 'skipped',
-        attempts: 0,
-        lastError: enabled ? null : 'channel disabled',
-      };
-    },
-  );
+  const rows = matched.map(({ alertId, targetId, channel }): DeliveryInsert => {
+    const enabled = enabledChannels.has(channel);
+    return {
+      alertId,
+      eventId: event.id,
+      targetId,
+      channel,
+      status: enabled ? 'pending' : 'skipped',
+      attempts: 0,
+      lastError: enabled ? null : 'channel disabled',
+    };
+  });
   const inserted = await tx
     .insert(deliveries)
     .values(rows)

@@ -138,7 +138,10 @@ describe('target routes', () => {
       `/api/targets/${targetId}`,
     );
     expect(response.statusCode).toBe(404);
-    const rows = await db.select().from(targets).where(eq(targets.id, targetId));
+    const rows = await db
+      .select()
+      .from(targets)
+      .where(eq(targets.id, targetId));
     expect(rows).toHaveLength(1);
   });
 

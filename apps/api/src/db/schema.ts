@@ -86,10 +86,7 @@ export const alerts = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    check(
-      'alerts_min_severity_check',
-      sql`${t.minSeverity} between 1 and 5`,
-    ),
+    check('alerts_min_severity_check', sql`${t.minSeverity} between 1 and 5`),
   ],
 );
 

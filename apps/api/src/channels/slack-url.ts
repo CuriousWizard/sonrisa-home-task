@@ -17,7 +17,9 @@ export function assertAllowedSlackUrl(
     throw new SlackUrlError('Webhook URL is not a valid URL');
   }
   if (url.username !== '' || url.password !== '') {
-    throw new SlackUrlError('Webhook URL must not contain a username or password');
+    throw new SlackUrlError(
+      'Webhook URL must not contain a username or password',
+    );
   }
   // The parsed origin and path are normalized, so tricks such as "/../" or a query are already resolved.
   const location = url.origin + url.pathname;

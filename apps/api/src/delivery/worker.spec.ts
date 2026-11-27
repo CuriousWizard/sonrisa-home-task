@@ -186,7 +186,11 @@ describe('delivery worker', () => {
     send.mockImplementation(
       (config) =>
         new Promise<void>((resolve, reject) => {
-          held.push({ address: (config as EmailConfig).address, resolve, reject });
+          held.push({
+            address: (config as EmailConfig).address,
+            resolve,
+            reject,
+          });
         }),
     );
     return held;

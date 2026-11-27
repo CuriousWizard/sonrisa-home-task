@@ -13,10 +13,16 @@ describe('assertAllowedSlackUrl', () => {
 
   it.each([
     ['a look-alike host', 'https://hooks.slack.com.evil.com/services/x'],
-    ['the prefix in the query', 'https://evil.com/?https://hooks.slack.com/services/'],
+    [
+      'the prefix in the query',
+      'https://evil.com/?https://hooks.slack.com/services/',
+    ],
     ['a username', 'https://user@hooks.slack.com/services/x'],
     ['a password', 'https://:secret@hooks.slack.com/services/x'],
-    ['a path that climbs out of the prefix', 'https://hooks.slack.com/services/../api'],
+    [
+      'a path that climbs out of the prefix',
+      'https://hooks.slack.com/services/../api',
+    ],
     ['http when only https is allowed', 'http://hooks.slack.com/services/x'],
     ['a value that is not a URL', 'hooks.slack.com/services/x'],
   ])('rejects %s without echoing the URL', (_label, raw) => {

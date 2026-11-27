@@ -1,8 +1,5 @@
 import { EventInput } from '@alerts/shared';
-import {
-  earthquakeSeverity,
-  marketSeverity,
-} from '../../matching/severity';
+import { earthquakeSeverity, marketSeverity } from '../../matching/severity';
 import type { EventSource, NewEvent, Random } from '../source';
 import { createDisasterSource } from './disaster';
 import { createMarketSource } from './market';
@@ -47,44 +44,47 @@ async function pollMany(eventSource: EventSource): Promise<NewEvent[]> {
   return polled;
 }
 
-describe.each(Object.entries(factories))('%s simulator', (category, factory) => {
-  it('returns events that pass the shared EventInput schema', async () => {
-    const eventSource = source(factory, seeded(1));
-    expect(eventSource.category).toBe(category);
-    const polled = await pollMany(eventSource);
-    for (const event of polled) {
-      expect(EventInput.safeParse(event).error).toBeUndefined();
-      expect(event.category).toBe(category);
-      expect(event.sourceId).toBe(eventSource.id);
-    }
-    expect(new Set(polled.map((event) => event.externalId)).size).toBe(POLLS);
-  });
+describe.each(Object.entries(factories))(
+  '%s simulator',
+  (category, factory) => {
+    it('returns events that pass the shared EventInput schema', async () => {
+      const eventSource = source(factory, seeded(1));
+      expect(eventSource.category).toBe(category);
+      const polled = await pollMany(eventSource);
+      for (const event of polled) {
+        expect(EventInput.safeParse(event).error).toBeUndefined();
+        expect(event.category).toBe(category);
+        expect(event.sourceId).toBe(eventSource.id);
+      }
+      expect(new Set(polled.map((event) => event.externalId)).size).toBe(POLLS);
+    });
 
-  it.each([0, 0.999999])(
-    'returns a valid event when random always returns %s',
-    async (value) => {
-      const [event] = await source(factory, () => value).poll();
-      expect(EventInput.safeParse(event).error).toBeUndefined();
-    },
-  );
+    it.each([0, 0.999999])(
+      'returns a valid event when random always returns %s',
+      async (value) => {
+        const [event] = await source(factory, () => value).poll();
+        expect(EventInput.safeParse(event).error).toBeUndefined();
+      },
+    );
 
-  it('nextDelayMs stays within the bounds and changes between calls', () => {
-    expect(source(factory, () => 0).nextDelayMs()).toBe(MIN_MS);
-    expect(source(factory, () => 0.999999).nextDelayMs()).toBe(MAX_MS);
+    it('nextDelayMs stays within the bounds and changes between calls', () => {
+      expect(source(factory, () => 0).nextDelayMs()).toBe(MIN_MS);
+      expect(source(factory, () => 0.999999).nextDelayMs()).toBe(MAX_MS);
 
-    const values = [0.1, 0.7];
-    const twoValues = source(factory, () => values.shift() ?? 0);
-    expect(twoValues.nextDelayMs()).not.toBe(twoValues.nextDelayMs());
+      const values = [0.1, 0.7];
+      const twoValues = source(factory, () => values.shift() ?? 0);
+      expect(twoValues.nextDelayMs()).not.toBe(twoValues.nextDelayMs());
 
-    const eventSource = source(factory, seeded(2));
-    for (let i = 0; i < 1000; i++) {
-      const delay = eventSource.nextDelayMs();
-      expect(Number.isInteger(delay)).toBe(true);
-      expect(delay).toBeGreaterThanOrEqual(MIN_MS);
-      expect(delay).toBeLessThanOrEqual(MAX_MS);
-    }
-  });
-});
+      const eventSource = source(factory, seeded(2));
+      for (let i = 0; i < 1000; i++) {
+        const delay = eventSource.nextDelayMs();
+        expect(Number.isInteger(delay)).toBe(true);
+        expect(delay).toBeGreaterThanOrEqual(MIN_MS);
+        expect(delay).toBeLessThanOrEqual(MAX_MS);
+      }
+    });
+  },
+);
 
 describe('simulator severity', () => {
   it('market severity follows marketSeverity(changePct)', async () => {

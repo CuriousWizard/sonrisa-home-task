@@ -42,23 +42,19 @@ export async function authRoutes(
     return toUserDto(user);
   }
 
-  app.post(
-    '/register',
-    { config: { rateLimit } },
-    async (request, reply) => {
-      const input = RegisterInput.parse(request.body);
-      const [user] = await app.db
-        .insert(users)
-        .values({
-          email: input.email,
-          passwordHash: await hashPassword(input.password),
-          role: 'user',
-        })
-        .returning();
-      reply.code(201);
-      return startSession(reply, user);
-    },
-  );
+  app.post('/register', { config: { rateLimit } }, async (request, reply) => {
+    const input = RegisterInput.parse(request.body);
+    const [user] = await app.db
+      .insert(users)
+      .values({
+        email: input.email,
+        passwordHash: await hashPassword(input.password),
+        role: 'user',
+      })
+      .returning();
+    reply.code(201);
+    return startSession(reply, user);
+  });
 
   app.post('/login', { config: { rateLimit } }, async (request, reply) => {
     const input = LoginInput.parse(request.body);

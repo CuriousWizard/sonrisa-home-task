@@ -51,7 +51,10 @@ const slackPrefixes = z.string().transform((value, ctx) => {
   entries.forEach((entry, index) => {
     const problem = prefixProblem(entry);
     if (problem) {
-      ctx.addIssue({ code: 'custom', message: `entry ${index + 1} ${problem}` });
+      ctx.addIssue({
+        code: 'custom',
+        message: `entry ${index + 1} ${problem}`,
+      });
     }
   });
   return entries;

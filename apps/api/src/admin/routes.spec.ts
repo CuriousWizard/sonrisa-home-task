@@ -343,7 +343,9 @@ describe('admin routes', () => {
     expect(response.body).not.toContain(withAlerts.passwordHash);
 
     const limited = await asAdmin('GET', '/api/admin/users?limit=1');
-    expect(limited.json()).toEqual([expect.objectContaining({ id: newest.id })]);
+    expect(limited.json()).toEqual([
+      expect.objectContaining({ id: newest.id }),
+    ]);
   });
 
   it("lists one user's alerts with their target ids, cut at limit", async () => {
@@ -470,7 +472,9 @@ describe('admin routes', () => {
     );
 
     const limited = await asAdmin('GET', '/api/admin/deliveries?limit=1');
-    expect(limited.json()).toEqual([expect.objectContaining({ id: slackDead })]);
+    expect(limited.json()).toEqual([
+      expect.objectContaining({ id: slackDead }),
+    ]);
 
     const unknown = await asAdmin('GET', '/api/admin/deliveries?status=lost');
     expect(unknown.statusCode).toBe(400);
@@ -588,9 +592,13 @@ describe('admin routes', () => {
       expect.objectContaining({ id: TEST_SOURCE_ID, enabled: false }),
     );
 
-    const unknown = await asAdmin('PATCH', '/api/admin/sources/no-such-source', {
-      enabled: true,
-    });
+    const unknown = await asAdmin(
+      'PATCH',
+      '/api/admin/sources/no-such-source',
+      {
+        enabled: true,
+      },
+    );
     expect(unknown.statusCode).toBe(404);
   });
 

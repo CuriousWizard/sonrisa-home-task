@@ -45,9 +45,7 @@ describe('buildMessage', () => {
       },
       'Big quakes',
     );
-    expect(quake.text).toContain(
-      'Earthquake in South America, magnitude 6.4.',
-    );
+    expect(quake.text).toContain('Earthquake in South America, magnitude 6.4.');
     expect(quake.text).toContain('Alert: Big quakes');
 
     const flood = buildMessage(
