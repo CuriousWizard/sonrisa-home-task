@@ -86,6 +86,13 @@ const ConfigSchema = z
     SEED_USER_PASSWORD: RegisterInput.shape.password,
   })
   .superRefine((config, ctx) => {
+    if (config.SOURCE_MIN_INTERVAL_MS > config.SOURCE_MAX_INTERVAL_MS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SOURCE_MIN_INTERVAL_MS'],
+        message: 'must not be greater than SOURCE_MAX_INTERVAL_MS',
+      });
+    }
     if (config.NODE_ENV !== 'production') {
       return;
     }

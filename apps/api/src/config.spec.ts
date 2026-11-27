@@ -70,6 +70,26 @@ describe('loadConfig', () => {
     expect(message).not.toContain('hookuser');
   });
 
+  it('rejects SOURCE_MIN_INTERVAL_MS greater than SOURCE_MAX_INTERVAL_MS', () => {
+    const message = configError(
+      exampleWith({
+        SOURCE_MIN_INTERVAL_MS: '60000',
+        SOURCE_MAX_INTERVAL_MS: '20000',
+      }),
+    );
+    expect(message).toContain(
+      'SOURCE_MIN_INTERVAL_MS: must not be greater than SOURCE_MAX_INTERVAL_MS',
+    );
+    expect(() =>
+      loadConfig(
+        exampleWith({
+          SOURCE_MIN_INTERVAL_MS: '30000',
+          SOURCE_MAX_INTERVAL_MS: '30000',
+        }),
+      ),
+    ).not.toThrow();
+  });
+
   it('rejects an http: Slack prefix when NODE_ENV is production', () => {
     const message = configError(exampleWith({ NODE_ENV: 'production' }));
     expect(message).toContain(

@@ -6,6 +6,7 @@ import { createChannelRegistry } from './channels/registry';
 import { loadConfig, loadRootEnvFile } from './config';
 import { createDb } from './db/client';
 import { syncRegistryRows } from './db/registry-sync';
+import { createWorker } from './delivery/worker';
 import { createSourceRegistry } from './sources/registry';
 import { startScheduler } from './sources/scheduler';
 
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   app.addHook('onClose', async () => {
     await pool.end();
   });
+  const worker = createWorker({ db, channels, config, logger: app.log });
 
   let stopScheduler = async (): Promise<void> => undefined;
   let closing = false;
@@ -29,8 +31,8 @@ async function main(): Promise<void> {
     }
     closing = true;
     app.log.info(`${signal} received, closing the server`);
-    // A poll still running needs the pool, so the scheduler stops first.
-    await stopScheduler();
+    // A running poll or tick needs the pool, so both stop before it closes.
+    await Promise.all([stopScheduler(), worker.stop()]);
     await app.close();
     process.exit(0);
   };
@@ -39,6 +41,7 @@ async function main(): Promise<void> {
 
   await app.listen({ port: config.PORT, host: 'localhost' });
   stopScheduler = startScheduler({ db, sources, log: app.log });
+  worker.start();
 
   // Set when Nx waits for this server to be ready
   if (process.env.NX_READY_SIGNAL_SOCKET) {
