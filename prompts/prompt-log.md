@@ -214,6 +214,14 @@ Document these into markdown files, commit and push them
 Create a quick readme
 ```
 
+The user then edited the README and amended the agent's README commit, and staged the screenshot script, the PNGs, `package.json` and the deliveries table change.
+
+## 018 Commit the staged changes
+
+```text
+Commit last changes
+```
+
 ## Chat exports
 
 Prompts 001 to 013, except 007, come from one chat. Each export of that chat holds the whole chat up to the moment of export. The "New prompts" column names the prompts that the earlier export does not have. The exports also contain `@agent Continue: "Continue to iterate?"` requests. VS Code sends one when the user clicks Continue at the tool call limit. They carry no text from the user.

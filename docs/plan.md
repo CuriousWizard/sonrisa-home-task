@@ -63,7 +63,7 @@ Done and committed:
 - `prompts/exports/M4-M5-chat.json`, scanned for secrets before the commit (V-023).
 - The implementer prompt `prompts/subagents/028-m6-screenshots.md`.
 
-In the working tree, not committed (V-024):
+In commit `7cb5c56`, not yet verified (V-024). The user staged these files and asked for the commit (prompt 018):
 
 - `scripts/screenshots.mjs` and the `screenshots` script in `package.json`. The script creates demo data through the API and saves six PNGs in `docs/screenshots/`.
 - The six PNGs. They come from the implementer's run, before the two edits below.
@@ -72,7 +72,7 @@ In the working tree, not committed (V-024):
 
 Left, in this order:
 
-1. Start the stack with `DELIVERY_BACKOFF_BASE_MS=2000 npm run dev` and run `npm run screenshots`. Look at each PNG. Run `npx nx run-many -t build lint test --skip-nx-cache`, because the table change has not been through it. Commit the script, the table change and the PNGs.
+1. Start the stack with `DELIVERY_BACKOFF_BASE_MS=2000 npm run dev` and run `npm run screenshots`. Look at each PNG. Run `npx nx run-many -t build lint test --skip-nx-cache`, because the table change has not been through it. Commit the new PNGs.
 2. Finish `README.md`. A quick version without screenshots was written after the stop (prompt 017). It still needs the screenshots and a run of its demo steps by hand.
 3. Send one review prompt for the whole repository to both reviewers. Save the replies in `docs/reviews/m6-opus.md` and `docs/reviews/m6-gpt.md`, and record each finding in the AI review log.
 4. Write the closing entry of the AI review log: what each reviewer model found and missed, how the implementers failed, and what the orchestrator caught. It lists the open items:
