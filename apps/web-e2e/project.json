@@ -8,6 +8,15 @@
   "targets": {
     "e2e": {
       "cache": false
+    },
+    "e2e-ci": {
+      "cache": false
+    },
+    "e2e-ci--src/smoke.spec.ts": {
+      "cache": false
+    },
+    "e2e-ci--merge-reports": {
+      "cache": false
     }
   }
 }

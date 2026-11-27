@@ -5,8 +5,8 @@ import { workspaceRoot } from '@nx/devkit';
 // No getReadyUrl: when only one server task reports a URL, Nx passes it on, and that can be the API's.
 const baseURL = process.env['BASE_URL'] || 'http://localhost:4200';
 const serverStartTimeout = 180_000;
-// Nx runs the serve command in its own session, out of reach of the SIGKILL Playwright sends by default,
-// so Playwright sends SIGTERM and Nx stops it.
+// Applies only to a direct `npx playwright test`. Nx runs the serve command in its own session, out of reach
+// of the SIGKILL Playwright sends by default, so Playwright sends SIGTERM and Nx stops it.
 const gracefulShutdown = { signal: 'SIGTERM', timeout: 10_000 } as const;
 
 /**
@@ -30,13 +30,14 @@ export default defineConfig({
   // The smoke test shares one dev database and mock Slack store, so it runs alone and never retries.
   workers: 1,
   retries: 0,
-  // Two 20 second polls plus the UI steps can pass the 30 second default.
-  timeout: 60_000,
+  // Two 30 second polls plus the UI steps can pass the 30 second default.
+  timeout: 90_000,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL,
     trace: 'retain-on-failure',
   },
+  // Under `npm run e2e`, Nx starts both servers as dependencies of the e2e target, and Playwright reuses them.
   webServer: [
     {
       command: 'npx nx run api:serve',

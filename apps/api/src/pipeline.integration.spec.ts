@@ -84,6 +84,21 @@ async function mailTo(address: string): Promise<{ Subject: string }[]> {
   return messages;
 }
 
+// Runs every step even when an earlier one fails, then reports all failures.
+async function runEach(steps: (() => Promise<unknown>)[]): Promise<void> {
+  const errors: unknown[] = [];
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Teardown failed');
+  }
+}
+
 describe('event pipeline over HTTP', () => {
   let app: FastifyInstance;
   let db: Db;
@@ -97,6 +112,7 @@ describe('event pipeline over HTTP', () => {
   let eventIds: string[] = [];
 
   beforeAll(async () => {
+    // The channel registry needs the allowlist prefix, with the port, before the app can listen.
     const port = await freePort();
     baseUrl = `http://127.0.0.1:${port}`;
     mockSlackPrefix = `${baseUrl}/api/dev/mock-slack/`;
@@ -130,27 +146,41 @@ describe('event pipeline over HTTP', () => {
     });
     expect(login.status).toBe(200);
     adminSession = sessionFrom(login);
+    // An earlier run that stopped mid-test can leave a channel off.
+    for (const id of ChannelId.options) {
+      await setChannelEnabled(id, true);
+    }
   });
 
   afterEach(async () => {
-    await setMockSlackFails(false);
-    // Deleting the users cascades to their targets, alerts and deliveries.
-    if (userIds.length > 0) {
-      await db.delete(users).where(inArray(users.id, userIds));
-    }
-    userIds = [];
-    if (eventIds.length > 0) {
-      await db.delete(events).where(inArray(events.id, eventIds));
-    }
-    eventIds = [];
+    await runEach([
+      () => setMockSlackFails(false),
+      // Deleting the users cascades to their targets, alerts and deliveries.
+      async () => {
+        if (userIds.length > 0) {
+          await db.delete(users).where(inArray(users.id, userIds));
+        }
+        userIds = [];
+      },
+      async () => {
+        if (eventIds.length > 0) {
+          await db.delete(events).where(inArray(events.id, eventIds));
+        }
+        eventIds = [];
+      },
+    ]);
   });
 
   afterAll(async () => {
-    if (adminId) {
-      await db.delete(users).where(eq(users.id, adminId));
-    }
-    await app?.close();
-    await pool?.end();
+    await runEach([
+      async () => {
+        if (adminId) {
+          await db.delete(users).where(eq(users.id, adminId));
+        }
+      },
+      async () => app?.close(),
+      async () => pool?.end(),
+    ]);
   });
 
   function call(
@@ -298,7 +328,7 @@ describe('event pipeline over HTTP', () => {
   it('delivers a matching market event to Mailpit and the mock Slack receiver', async () => {
     const subscriber = await newSubscriber();
 
-    const { deliveriesCreated } = await injectMarketEvent(7);
+    const { event, deliveriesCreated } = await injectMarketEvent(7);
     expect(deliveriesCreated).toBe(2);
 
     await worker.tick();
@@ -306,15 +336,19 @@ describe('event pipeline over HTTP', () => {
     const rows = await deliveriesOf(subscriber.alertId);
     expect(rows.email).toMatchObject({ status: 'sent', attempts: 1 });
     expect(rows.slack).toMatchObject({ status: 'sent', attempts: 1 });
-    await vi.waitFor(async () => {
-      const mail = await mailTo(subscriber.email);
-      expect(mail).toHaveLength(1);
-      expect(mail[0].Subject.startsWith('[market]')).toBe(true);
-    });
+    await vi.waitFor(
+      async () => {
+        const mail = await mailTo(subscriber.email);
+        expect(mail).toHaveLength(1);
+        expect(mail[0].Subject).toBe(`[market] ${event.title}`);
+      },
+      { timeout: 5_000 },
+    );
     const slack = await slackMessagesFor(subscriber.hookId);
     expect(slack).toHaveLength(1);
+    expect(slack[0].text).toContain(event.title);
     expect(slack[0].text).toContain(subscriber.alertName);
-  });
+  }, 15_000);
 
   it('creates no delivery for a market event below the alert threshold', async () => {
     const subscriber = await newSubscriber();
@@ -384,8 +418,8 @@ describe('event pipeline over HTTP', () => {
 
   it('creates a skipped Slack row and a pending email row while the Slack channel is off', async () => {
     const subscriber = await newSubscriber();
-    await setChannelEnabled('slack', false);
     try {
+      await setChannelEnabled('slack', false);
       const { deliveriesCreated } = await injectMarketEvent(7);
       expect(deliveriesCreated).toBe(2);
 

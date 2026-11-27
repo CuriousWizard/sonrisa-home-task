@@ -24,6 +24,7 @@ const suffix = randomUUID().slice(0, 8);
 const targetName = `E2E Slack ${suffix}`;
 const alertName = `E2E market ${suffix}`;
 const eventTitle = `E2E move ${suffix}`;
+const symbol = `E${suffix.slice(0, 7).toUpperCase()}`;
 const hookId = `e2e-${suffix}`;
 const webhookUrl = `http://localhost:3000/api/dev/mock-slack/${hookId}`;
 
@@ -35,26 +36,34 @@ async function signIn(page: Page, account: Account): Promise<void> {
   await expect(page).toHaveURL(/\/alerts$/);
 }
 
-async function deleteByName(
+async function deleteE2eItems(
   request: APIRequestContext,
   path: string,
-  name: string,
 ): Promise<void> {
   const list = await request.get(`${path}?limit=200`);
   await expect(list).toBeOK();
   const items = (await list.json()) as { id: string; name: string }[];
-  for (const item of items.filter((entry) => entry.name === name)) {
+  for (const item of items.filter((entry) => entry.name.startsWith('E2E '))) {
     await expect(await request.delete(`${path}/${item.id}`)).toBeOK();
   }
 }
 
+// Deletes every E2E alert and target, including those of an earlier run that failed to clean up.
+async function deleteE2eData(request: APIRequestContext): Promise<void> {
+  await expect(await request.post('/api/auth/login', { data: user })).toBeOK();
+  // Alerts go first, because the API refuses to delete a target that an alert still uses.
+  await deleteE2eItems(request, '/api/alerts');
+  await deleteE2eItems(request, '/api/targets');
+}
+
+test.beforeEach(async ({ page }) => {
+  await deleteE2eData(page.request);
+  // The test signs in through the form, so it starts signed out.
+  await expect(await page.request.post('/api/auth/logout')).toBeOK();
+});
+
 test.afterEach(async ({ page }) => {
-  await expect(
-    await page.request.post('/api/auth/login', { data: user }),
-  ).toBeOK();
-  // The alert goes first, because the API refuses to delete a target that an alert still uses.
-  await deleteByName(page.request, '/api/alerts', alertName);
-  await deleteByName(page.request, '/api/targets', targetName);
+  await deleteE2eData(page.request);
 });
 
 test('a market event reaches the mock Slack receiver and the admin sees it sent', async ({
@@ -78,7 +87,7 @@ test('a market event reaches the mock Slack receiver and the admin sees it sent'
   await page.getByLabel('Category', { exact: true }).selectOption({
     label: 'Market',
   });
-  await page.getByLabel('Symbols', { exact: true }).fill('');
+  await page.getByLabel('Symbols', { exact: true }).fill(symbol);
   await page.getByLabel('Direction', { exact: true }).selectOption({
     label: 'Any',
   });
@@ -93,27 +102,46 @@ test('a market event reaches the mock Slack receiver and the admin sees it sent'
     page.getByRole('link', { name: `Edit alert ${alertName}` }),
   ).toBeVisible();
 
+  const alerts = await page.request.get('/api/alerts?limit=200');
+  await expect(alerts).toBeOK();
+  const saved = ((await alerts.json()) as { name: string }[]).find(
+    (alert) => alert.name === alertName,
+  );
+  expect(saved).toMatchObject({
+    category: 'market',
+    filters: { symbols: [symbol], direction: 'any', minChangePct: 5 },
+  });
+
   const injected = await page.request.post('/api/dev/events', {
     data: {
       category: 'market',
       title: eventTitle,
       severity: 1,
-      data: { symbol: 'E2E', price: 100, changePct: 8 },
+      data: { symbol, price: 100, changePct: 8 },
     },
   });
   await expect(injected).toBeOK();
-  expect(await injected.json()).toMatchObject({ deliveriesCreated: 1 });
+  // Other alerts in the dev database can match the event too.
+  const { deliveriesCreated } = (await injected.json()) as {
+    deliveriesCreated: number;
+  };
+  expect(deliveriesCreated).toBeGreaterThanOrEqual(1);
 
   await expect
     .poll(
       async () => {
         const response = await page.request.get('/api/dev/mock-slack/messages');
-        const messages = (await response.json()) as { hookId: string }[];
-        return messages.map((message) => message.hookId);
+        const messages = (await response.json()) as {
+          hookId: string;
+          text: string;
+        }[];
+        return messages
+          .filter((message) => message.hookId === hookId)
+          .map((message) => message.text);
       },
-      { timeout: 20_000 },
+      { timeout: 30_000 },
     )
-    .toContain(hookId);
+    .toContainEqual(expect.stringContaining(eventTitle));
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -128,10 +156,16 @@ test('a market event reaches the mock Slack receiver and the admin sees it sent'
   await expect
     .poll(
       async () => {
+        const loaded = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'GET' &&
+            new URL(response.url()).pathname === '/api/admin/deliveries',
+        );
         await refresh.click();
+        await loaded;
         return sent.isVisible();
       },
-      { timeout: 20_000 },
+      { timeout: 30_000 },
     )
     .toBe(true);
 });
