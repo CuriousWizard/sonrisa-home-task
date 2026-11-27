@@ -53,6 +53,35 @@ An annotated tag marks the last commit of each milestone, so `git log m2..m3` sh
 
 The tag for M6 is added when that milestone ends.
 
+## M6 status
+
+The user stopped M6 on 2026-11-27 because time ran out (prompt 015). M6 has no tag yet.
+
+Done and committed:
+
+- Prompts 014 to 016 in `prompts/prompt-log.md`, with the user's answers to the M6 questions.
+- `prompts/exports/M4-M5-chat.json`, scanned for secrets before the commit (V-023).
+- The implementer prompt `prompts/subagents/028-m6-screenshots.md`.
+
+In the working tree, not committed (V-024):
+
+- `scripts/screenshots.mjs` and the `screenshots` script in `package.json`. The script creates demo data through the API and saves six PNGs in `docs/screenshots/`.
+- The six PNGs. They come from the implementer's run, before the two edits below.
+- `apps/web/src/app/admin/deliveries-page.html`. The orchestrator moved the Attempts and Last error columns next to Actions.
+- The orchestrator's edit to `scripts/screenshots.mjs` that crops each shot below the page content.
+
+Left, in this order:
+
+1. Start the stack with `DELIVERY_BACKOFF_BASE_MS=2000 npm run dev` and run `npm run screenshots`. Look at each PNG. Run `npx nx run-many -t build lint test --skip-nx-cache`, because the table change has not been through it. Commit the script, the table change and the PNGs.
+2. Write `README.md`, which holds one line today. It covers what the app does, the stack and the AI tooling, prerequisites, the setup, run and test commands, the seeded users, the demo script, where the process artifacts are, known limits and the day-two list, and the screenshots. Run the demo script by hand before the commit.
+3. Send one review prompt for the whole repository to both reviewers. Save the replies in `docs/reviews/m6-opus.md` and `docs/reviews/m6-gpt.md`, and record each finding in the AI review log.
+4. Write the closing entry of the AI review log: what each reviewer model found and missed, how the implementers failed, and what the orchestrator caught. It lists the open items:
+   - V-016, the effort test for Claude Opus 5.5. The user chose to leave it open.
+   - The unused `_enabled` in `libs/shared/src/lib/alerts.spec.ts` and the web bundle at 880 kB against a 500 kB budget. The user chose to leave both open.
+   - The deferred findings in V-014, V-018, V-020 and V-022.
+   - The events that the e2e test leaves in the dev database (D-037).
+5. Add the m6 row to the "Milestone commits" table. The user exports the chat to `prompts/exports/`. The orchestrator commits the export, tags m6 on that commit and pushes.
+
 ## Order and reasons
 
 1. Process docs come first. The graders read them first, and every later subagent prompt points at them.

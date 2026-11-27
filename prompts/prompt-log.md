@@ -192,6 +192,22 @@ Should I push main and the m6 tag when M6 is done?
   -> Yes, push at the end
 ```
 
+## 015 Stop M6
+
+```text
+How many tasks left? My time is running out so stop this task as soon as you can.
+```
+
+The agent stopped the dev servers it had started and listed what was done, what was in progress and what was left.
+
+## 016 Record the M6 state
+
+```text
+Document these into markdown files, commit and push them
+```
+
+"These" refers to the agent's list. The agent wrote it into the "M6 status" section of `docs/plan.md` and into V-024 of the AI review log.
+
 ## Chat exports
 
 Prompts 001 to 013, except 007, come from one chat. Each export of that chat holds the whole chat up to the moment of export. The "New prompts" column names the prompts that the earlier export does not have. The exports also contain `@agent Continue: "Continue to iterate?"` requests. VS Code sends one when the user clicks Continue at the tool call limit. They carry no text from the user.

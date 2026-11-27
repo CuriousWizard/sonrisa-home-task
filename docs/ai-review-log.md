@@ -309,3 +309,16 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Result: every webhook URL match was a fake test URL such as `https://hooks.slack.com/services/T0/B0/x`. The `sk-` match was part of `task-04-feature-design-and-build`. No export contains a JWT or the secret.
 - Correction: the exports table in `prompts/prompt-log.md` said the M2 and M3 export covers prompts 004 to 009. Each export holds the whole chat up to the moment of export, so the table now names the prompts that are new in each export.
 - Status: accepted.
+
+## V-024 M6 screenshot script
+
+- AI output: the implementer for prompt `028-m6-screenshots.md` wrote `scripts/screenshots.mjs`, added the `screenshots` script to `package.json` and saved six PNGs in `docs/screenshots/`.
+- Check: the orchestrator read `git status`, the `package.json` diff and the whole script. It opened each PNG.
+- Result:
+  - The run returned a full report. Two runs in a row passed, and the switches and fail mode were back in their earlier state afterwards.
+  - The implementer reported one deviation. The seeded demo user has an alert with the same filters as the script's earthquake alert, so each run adds four deliveries for that user. The script therefore matches rows by event id, not by title.
+  - The deliveries screenshot did not show the Attempts and Last error columns. `main` is limited to `max-w-6xl`, and the table is wider, so both columns sat past the right edge at 1440 px. The implementer listed this under "not verified". An admin who checks a failed delivery needs those two columns, so the orchestrator moved them after Actions in `deliveries-page.html`. Retry stays where the M4 fix put it (V-019).
+  - The sign-in, alerts, targets and metrics shots had an empty lower half. The orchestrator changed the script to crop each shot below the last content.
+  - When the orchestrator stopped the dev stack, the API still held port 3000, because it runs in its own process group. The orchestrator stopped that group too and confirmed that both ports were free.
+- Not verified: the user stopped M6 (prompt 015) before the script ran again. The PNGs still show the old column order. The build, lint and test gate has not run on the template change. None of these files are committed. `docs/plan.md` lists the next steps.
+- Status: open.
