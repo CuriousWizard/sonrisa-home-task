@@ -141,21 +141,21 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Check: the orchestrator reran reviewer-opus F1 with `tsc --showConfig`. The API had `strict: false` and `target: es6`, while `apps/web` and `libs/shared` had `strict: true`. The finding holds.
 - Result:
 
-| Topic | Opus | GPT | Outcome | Reason |
-| --- | --- | --- | --- | --- |
-| API compiles without strict mode | F1 | none | accepted | D-027. Confirmed with `tsc --showConfig`. |
-| Event data and filter schemas strip unknown keys | F2 | M2-01 | accepted | `z.strictObject`, with two tests that fail on revert |
-| Three Nx plugins on caret ranges | F3 | M2-06 | accepted | Pinned to 24.0.7 |
-| Generated autoload bootstrap instead of `buildApp(config)` | F4 | M2-05 | deferred to M3 | D-028 |
-| No route params schemas | F5 | M2-02 | accepted | `IdParam`, `SourceIdParam`, `ChannelIdParam`, `HookIdParam` |
-| `ChannelField.key` typed as `string` | F6 | none | deferred to M4 | M4 builds the form that reads the keys |
-| `enabled` default turns an alert back on through PUT | F7 | none | accepted | `enabled` is required, with a test |
-| Leftover deploy targets in `apps/api/project.json` | F8 | none | rejected | Generator defaults with no effect on dev or tests |
-| Firefox and WebKit in Playwright | F9 | none | accepted | Chromium only |
-| Mailpit image without a tag | F10 | none | accepted | `axllent/mailpit:v1.34.0`, read from the Docker Hub tag list |
-| `npm ls` reports invalid nested dev packages | F11 | none | deferred | Dev-only, nested under `@spartan-ng/cli`. The top-level tree is valid. |
-| Duplicate `targetIds` rejected without a rule in the design | none | M2-03 | accepted | The design now states the rule, because `alert_targets` has a primary key on the pair. |
-| Playwright `serve-static` has no `/api` proxy | none | M2-04 | deferred to M5 | M5 sets up the e2e server |
+| Topic                                                       | Opus | GPT   | Outcome        | Reason                                                                                 |
+| ----------------------------------------------------------- | ---- | ----- | -------------- | -------------------------------------------------------------------------------------- |
+| API compiles without strict mode                            | F1   | none  | accepted       | D-027. Confirmed with `tsc --showConfig`.                                              |
+| Event data and filter schemas strip unknown keys            | F2   | M2-01 | accepted       | `z.strictObject`, with two tests that fail on revert                                   |
+| Three Nx plugins on caret ranges                            | F3   | M2-06 | accepted       | Pinned to 24.0.7                                                                       |
+| Generated autoload bootstrap instead of `buildApp(config)`  | F4   | M2-05 | deferred to M3 | D-028                                                                                  |
+| No route params schemas                                     | F5   | M2-02 | accepted       | `IdParam`, `SourceIdParam`, `ChannelIdParam`, `HookIdParam`                            |
+| `ChannelField.key` typed as `string`                        | F6   | none  | deferred to M4 | M4 builds the form that reads the keys                                                 |
+| `enabled` default turns an alert back on through PUT        | F7   | none  | accepted       | `enabled` is required, with a test                                                     |
+| Leftover deploy targets in `apps/api/project.json`          | F8   | none  | rejected       | Generator defaults with no effect on dev or tests                                      |
+| Firefox and WebKit in Playwright                            | F9   | none  | accepted       | Chromium only                                                                          |
+| Mailpit image without a tag                                 | F10  | none  | accepted       | `axllent/mailpit:v1.34.0`, read from the Docker Hub tag list                           |
+| `npm ls` reports invalid nested dev packages                | F11  | none  | deferred       | Dev-only, nested under `@spartan-ng/cli`. The top-level tree is valid.                 |
+| Duplicate `targetIds` rejected without a rule in the design | none | M2-03 | accepted       | The design now states the rule, because `alert_targets` has a primary key on the pair. |
+| Playwright `serve-static` has no `/api` proxy               | none | M2-04 | deferred to M5 | M5 sets up the e2e server                                                              |
 
 - Fixes: prompt `006-m2-review-fixes.md`. The orchestrator reran `nx run-many -t build lint test --skip-nx-cache` after the fixes. All 6 projects passed. `tsc --showConfig` shows `strict: true` and `target: es2024` for the API. The shared tests went from 19 to 26.
 - Comparison: reviewer-opus found 11 issues, including the strict-mode gap, which reviewer-gpt missed. reviewer-gpt found the e2e proxy gap and the undocumented uniqueness rule, which reviewer-opus missed. Both checked `cn` and the Postgres 18 volume path on their own and agreed. Neither could reach Docker. reviewer-opus reported that the shared terminal twice returned another process's output, and it reran those commands with markers.

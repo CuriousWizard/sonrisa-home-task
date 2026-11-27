@@ -33,12 +33,12 @@ Read `docs/requirements.md` and `docs/design.md` before changing code.
 
 ## Build and test
 
-| Command | Does |
-| --- | --- |
-| `npm run setup` | Creates `.env` with a random secret if it is missing, starts Postgres and Mailpit |
-| `npm run dev` | Serves the API on port 3000 and the web app on port 4200 |
-| `npx nx run-many -t build lint test` | Builds, lints and tests every project. Run it before reporting work as done |
-| `npm run e2e` | Runs the Playwright tests |
+| Command                              | Does                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `npm run setup`                      | Creates `.env` with a random secret if it is missing, starts Postgres and Mailpit |
+| `npm run dev`                        | Serves the API on port 3000 and the web app on port 4200                          |
+| `npx nx run-many -t build lint test` | Builds, lints and tests every project. Run it before reporting work as done       |
+| `npm run e2e`                        | Runs the Playwright tests                                                         |
 
 `npm run setup` needs access to the Docker socket. An agent shell that started before the user joined the `docker` group gets "permission denied". In that case, ask the user to run the command.
 
