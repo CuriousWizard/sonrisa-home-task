@@ -5,18 +5,22 @@ import { DatabaseError } from 'pg';
 import { ZodError } from 'zod';
 import { authRoutes } from './auth/routes';
 import { createSessionTokens, type SessionTokens } from './auth/session';
+import type { ChannelRegistry } from './channels/registry';
 import type { Config } from './config';
 import type { Db } from './db/client';
+import { targetRoutes } from './targets/routes';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
     sessions: SessionTokens;
+    channels: ChannelRegistry;
   }
 }
 
 export interface AppDeps {
   db: Db;
+  channels: ChannelRegistry;
 }
 
 // Drizzle wraps driver errors in DrizzleQueryError and keeps the original as cause.
@@ -50,6 +54,7 @@ export async function buildApp(
 
   app.decorate('db', deps.db);
   app.decorate('sessions', createSessionTokens(config.JWT_SECRET));
+  app.decorate('channels', deps.channels);
   app.decorateRequest('currentUser', null);
 
   // Routes with a body accept only application/json (CSRF measure in the design).
@@ -93,6 +98,7 @@ export async function buildApp(
 
   app.get('/api/health', async () => ({ status: 'ok' }));
   await app.register(authRoutes, { prefix: '/api/auth', config });
+  await app.register(targetRoutes, { prefix: '/api/targets' });
 
   return app;
 }

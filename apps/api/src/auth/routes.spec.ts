@@ -3,6 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import type { Pool } from 'pg';
 import { buildApp } from '../app';
+import { createChannelRegistry } from '../channels/registry';
 import { loadConfig } from '../config';
 import { createDb, type Db } from '../db/client';
 import { users } from '../db/schema';
@@ -19,7 +20,10 @@ describe('auth routes', () => {
   beforeAll(async () => {
     const config = loadConfig({ ...process.env, AUTH_RATE_LIMIT_MAX: '1000' });
     ({ db, pool } = createDb(config.TEST_DATABASE_URL));
-    app = await buildApp(config, { db });
+    app = await buildApp(config, {
+      db,
+      channels: createChannelRegistry(config),
+    });
     await app.ready();
   });
 

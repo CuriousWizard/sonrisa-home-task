@@ -1,14 +1,20 @@
 #!/usr/bin/env tsx
 // @nx-target-name: serve
+import { ChannelId } from '@alerts/shared';
 import { buildApp } from './app';
+import { createChannelRegistry } from './channels/registry';
 import { loadConfig, loadRootEnvFile } from './config';
 import { createDb } from './db/client';
+import { syncRegistryRows } from './db/registry-sync';
 
 async function main(): Promise<void> {
   loadRootEnvFile();
   const config = loadConfig(process.env);
   const { db, pool } = createDb(config.DATABASE_URL);
-  const app = await buildApp(config, { db });
+  const channels = createChannelRegistry(config);
+  // Sources are added with the source registry in a later part.
+  await syncRegistryRows(db, { channelIds: ChannelId.options, sources: [] });
+  const app = await buildApp(config, { db, channels });
   app.addHook('onClose', async () => {
     await pool.end();
   });
