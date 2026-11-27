@@ -1,4 +1,5 @@
 import { and, eq, lte } from 'drizzle-orm';
+import type { EventDto } from '@alerts/shared';
 import type { Db } from '../db/client';
 import {
   alerts,
@@ -23,6 +24,21 @@ export type EventRow = typeof events.$inferSelect;
 export interface IngestResult {
   event: EventRow;
   deliveriesCreated: number;
+}
+
+export function toEventDto(row: EventRow): EventDto {
+  // Ingest validated category and data together, which the column types cannot express.
+  return {
+    id: row.id,
+    sourceId: row.sourceId,
+    category: row.category,
+    title: row.title,
+    summary: row.summary,
+    severity: row.severity,
+    data: row.data,
+    occurredAt: row.occurredAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+  } as EventDto;
 }
 
 // Returns the number of delivery rows inserted. Rows that already exist are left alone (R9).

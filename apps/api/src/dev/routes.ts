@@ -6,9 +6,8 @@ import {
   MockSlackMessage,
   MockSlackMode,
   type DevEventResult,
-  type EventDto,
 } from '@alerts/shared';
-import { ingestEvent, type EventRow } from '../events/ingest';
+import { ingestEvent, toEventDto } from '../events/ingest';
 import { HttpError } from '../http-error';
 
 export const MOCK_SLACK_MAX_MESSAGES = 500;
@@ -17,21 +16,6 @@ interface ReceivedSlackMessage {
   hookId: string;
   text: string;
   receivedAt: string;
-}
-
-function toEventDto(row: EventRow): EventDto {
-  // Ingest validated category and data together, which the column types cannot express.
-  return {
-    id: row.id,
-    sourceId: row.sourceId,
-    category: row.category,
-    title: row.title,
-    summary: row.summary,
-    severity: row.severity,
-    data: row.data,
-    occurredAt: row.occurredAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-  } as EventDto;
 }
 
 // buildApp registers these only outside production, so they need no login.

@@ -47,6 +47,19 @@ async function targetIdsByAlert(
   return byAlert;
 }
 
+export async function listAlerts(db: Db, userId: string): Promise<AlertDto[]> {
+  const rows = await db
+    .select()
+    .from(alerts)
+    .where(eq(alerts.userId, userId))
+    .orderBy(desc(alerts.createdAt));
+  const targetIds = await targetIdsByAlert(
+    db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => toAlertDto(row, targetIds.get(row.id) ?? []));
+}
+
 async function assertOwnTargets(
   tx: Tx,
   userId: string,
@@ -77,19 +90,9 @@ async function linkTargets(
 export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireUser);
 
-  app.get('/', async (request) => {
-    const user = currentUser(request);
-    const rows = await app.db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.userId, user.id))
-      .orderBy(desc(alerts.createdAt));
-    const targetIds = await targetIdsByAlert(
-      app.db,
-      rows.map((row) => row.id),
-    );
-    return rows.map((row) => toAlertDto(row, targetIds.get(row.id) ?? []));
-  });
+  app.get('/', async (request) =>
+    listAlerts(app.db, currentUser(request).id),
+  );
 
   app.post('/', async (request, reply) => {
     const user = currentUser(request);

@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { DatabaseError } from 'pg';
 import { ZodError } from 'zod';
+import { adminRoutes } from './admin/routes';
 import { alertRoutes } from './alerts/routes';
 import { authRoutes } from './auth/routes';
 import { createSessionTokens, type SessionTokens } from './auth/session';
@@ -102,6 +103,7 @@ export async function buildApp(
   await app.register(authRoutes, { prefix: '/api/auth', config });
   await app.register(targetRoutes, { prefix: '/api/targets' });
   await app.register(alertRoutes, { prefix: '/api/alerts' });
+  await app.register(adminRoutes, { prefix: '/api/admin' });
   if (config.NODE_ENV !== 'production') {
     await app.register(devRoutes, { prefix: '/api/dev' });
   }
