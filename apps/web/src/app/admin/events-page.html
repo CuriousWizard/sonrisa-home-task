@@ -1,0 +1,66 @@
+<app-page-header
+  heading="Events"
+  description="Events stored from every source, newest first."
+/>
+
+<div class="mb-4 flex flex-wrap items-end gap-4">
+  <div class="flex w-48 flex-col gap-2">
+    <label hlmLabel for="events-category">Category</label>
+    <select id="events-category" [class]="selectClass" [formControl]="category">
+      <option value="">All categories</option>
+      @for (option of categories; track option) {
+      <option [value]="option">{{ categoryLabels[option] }}</option>
+      }
+    </select>
+  </div>
+  <button
+    hlmBtn
+    variant="outline"
+    type="button"
+    [disabled]="loading()"
+    (click)="load()"
+  >
+    Refresh
+  </button>
+</div>
+
+@if (loadError(); as message) {
+<p class="text-destructive mb-4 text-sm">{{ message }}</p>
+} @if (events(); as list) { @if (list.length === 0) {
+<p class="text-muted-foreground text-sm">No events match this filter.</p>
+} @else {
+<div hlmTableContainer class="rounded-lg border">
+  <table hlmTable>
+    <thead hlmTHead>
+      <tr hlmTr>
+        <th hlmTh>Time</th>
+        <th hlmTh>Category</th>
+        <th hlmTh>Title</th>
+        <th hlmTh>Severity</th>
+        <th hlmTh>Source</th>
+      </tr>
+    </thead>
+    <tbody hlmTBody>
+      @for (event of list; track event.id) {
+      <tr hlmTr>
+        <td hlmTd>
+          <time [attr.datetime]="event.occurredAt"
+            >{{ event.occurredAt | localDateTime }}</time
+          >
+        </td>
+        <td hlmTd>{{ categoryLabels[event.category] }}</td>
+        <td hlmTd>
+          <span class="block max-w-md truncate" [title]="event.title"
+            >{{ event.title }}</span
+          >
+        </td>
+        <td hlmTd class="tabular-nums">{{ event.severity }}</td>
+        <td hlmTd class="font-mono text-xs">{{ event.sourceId }}</td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+} } @else if (!loadError()) {
+<p class="text-muted-foreground text-sm">Loading events.</p>
+}

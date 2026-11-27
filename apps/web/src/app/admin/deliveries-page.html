@@ -1,0 +1,122 @@
+<app-page-header
+  heading="Deliveries"
+  description="One row per event, alert and target, newest first."
+/>
+
+<div [formGroup]="filters" class="mb-4 flex flex-wrap items-end gap-4">
+  <div class="flex w-40 flex-col gap-2">
+    <label hlmLabel for="deliveries-status">Status</label>
+    <select
+      id="deliveries-status"
+      [class]="selectClass"
+      formControlName="status"
+    >
+      <option value="">All</option>
+      @for (option of statuses; track option) {
+      <option [value]="option">{{ statusLabels[option] }}</option>
+      }
+    </select>
+  </div>
+  <div class="flex w-40 flex-col gap-2">
+    <label hlmLabel for="deliveries-channel">Channel</label>
+    <select
+      id="deliveries-channel"
+      [class]="selectClass"
+      formControlName="channel"
+    >
+      <option value="">All</option>
+      @for (option of channelIds; track option) {
+      <option [value]="option">{{ channelLabels[option] }}</option>
+      }
+    </select>
+  </div>
+  <button
+    hlmBtn
+    variant="outline"
+    type="button"
+    [disabled]="loading()"
+    (click)="load()"
+  >
+    Refresh
+  </button>
+</div>
+
+@if (loadError(); as message) {
+<p class="text-destructive mb-4 text-sm">{{ message }}</p>
+} @if (deliveries(); as list) { @if (list.length === 0) {
+<p class="text-muted-foreground text-sm">No deliveries match these filters.</p>
+} @else {
+<div hlmTableContainer class="rounded-lg border">
+  <table hlmTable>
+    <thead hlmTHead>
+      <tr hlmTr>
+        <th hlmTh>Time</th>
+        <th hlmTh>Status</th>
+        <th hlmTh>Channel</th>
+        <th hlmTh>Event</th>
+        <th hlmTh>Alert</th>
+        <th hlmTh>Target</th>
+        <th hlmTh>User</th>
+        <th hlmTh>Attempts</th>
+        <th hlmTh>Last error</th>
+        <th hlmTh>Actions</th>
+      </tr>
+    </thead>
+    <tbody hlmTBody>
+      @for (delivery of list; track delivery.id) {
+      <tr hlmTr>
+        <td hlmTd>
+          <time [attr.datetime]="delivery.createdAt"
+            >{{ delivery.createdAt | localDateTime }}</time
+          >
+        </td>
+        <td hlmTd>
+          <span hlmBadge [class]="statusClasses[delivery.status]"
+            >{{ statusLabels[delivery.status] }}</span
+          >
+        </td>
+        <td hlmTd>{{ channelLabels[delivery.channel] }}</td>
+        <td hlmTd>
+          <span class="block max-w-xs truncate" [title]="delivery.eventTitle"
+            >{{ delivery.eventTitle }}</span
+          >
+        </td>
+        <td hlmTd>{{ delivery.alertName }}</td>
+        <td hlmTd>{{ delivery.targetName }}</td>
+        <td hlmTd>{{ delivery.userEmail }}</td>
+        <td hlmTd class="tabular-nums">{{ delivery.attempts }}</td>
+        <td hlmTd>
+          @if (delivery.lastError; as lastError) {
+          <span class="block max-w-xs truncate" [title]="lastError"
+            >{{ lastError }}</span
+          >
+          }
+        </td>
+        <td hlmTd class="whitespace-normal">
+          <div class="flex flex-wrap items-center gap-2">
+            @if (canRetry(delivery)) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              type="button"
+              [disabled]="retrying()"
+              (click)="retry(delivery)"
+            >
+              Retry
+            </button>
+            } @if (rowErrors()[delivery.id]; as message) {
+            <span role="status" class="text-destructive text-sm"
+              >{{ message }}</span
+            >
+            }
+          </div>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+} } @else if (!loadError()) {
+<p class="text-muted-foreground text-sm">Loading deliveries.</p>
+}

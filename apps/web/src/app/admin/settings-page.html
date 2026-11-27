@@ -1,0 +1,82 @@
+<app-page-header
+  heading="Settings"
+  description="A disabled source produces no events, and a disabled channel stores new deliveries as skipped."
+/>
+
+@if (loadError(); as message) {
+<p class="text-destructive text-sm">{{ message }}</p>
+} @else if (sources() === null || channels() === null) {
+<p class="text-muted-foreground text-sm">Loading settings.</p>
+} @else {
+<section aria-labelledby="sources-heading">
+  <h2 id="sources-heading" class="mb-4 text-lg font-semibold">Sources</h2>
+  <div hlmTableContainer class="max-w-2xl rounded-lg border">
+    <table hlmTable>
+      <thead hlmTHead>
+        <tr hlmTr>
+          <th hlmTh>ID</th>
+          <th hlmTh>Category</th>
+          <th hlmTh>Enabled</th>
+        </tr>
+      </thead>
+      <tbody hlmTBody>
+        @for (source of sources(); track source.id) {
+        <tr hlmTr>
+          <td hlmTd class="font-mono text-xs">{{ source.id }}</td>
+          <td hlmTd>{{ categoryLabels[source.category] }}</td>
+          <td hlmTd class="whitespace-normal">
+            <div class="flex flex-wrap items-center gap-3">
+              <hlm-switch
+                [checked]="source.enabled"
+                [aria-label]="source.id + ' enabled'"
+                (checkedChange)="setSourceEnabled(source, $event)"
+              />
+              @if (rowErrors()['source:' + source.id]; as message) {
+              <span role="status" class="text-destructive text-sm"
+                >{{ message }}</span
+              >
+              }
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mt-10" aria-labelledby="channels-heading">
+  <h2 id="channels-heading" class="mb-4 text-lg font-semibold">Channels</h2>
+  <div hlmTableContainer class="max-w-2xl rounded-lg border">
+    <table hlmTable>
+      <thead hlmTHead>
+        <tr hlmTr>
+          <th hlmTh>ID</th>
+          <th hlmTh>Enabled</th>
+        </tr>
+      </thead>
+      <tbody hlmTBody>
+        @for (channel of channels(); track channel.id) {
+        <tr hlmTr>
+          <td hlmTd class="font-mono text-xs">{{ channel.id }}</td>
+          <td hlmTd class="whitespace-normal">
+            <div class="flex flex-wrap items-center gap-3">
+              <hlm-switch
+                [checked]="channel.enabled"
+                [aria-label]="channel.id + ' enabled'"
+                (checkedChange)="setChannelEnabled(channel, $event)"
+              />
+              @if (rowErrors()['channel:' + channel.id]; as message) {
+              <span role="status" class="text-destructive text-sm"
+                >{{ message }}</span
+              >
+              }
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+}

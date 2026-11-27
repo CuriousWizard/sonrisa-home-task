@@ -1,0 +1,96 @@
+<app-page-header
+  heading="Users"
+  description="Every account, with the number of alerts it owns."
+/>
+
+@if (loadError(); as message) {
+<p class="text-destructive text-sm">{{ message }}</p>
+} @else if (users() === null) {
+<p class="text-muted-foreground text-sm">Loading users.</p>
+} @else if (users()?.length === 0) {
+<p class="text-muted-foreground text-sm">There are no users yet.</p>
+} @else {
+<div hlmTableContainer class="rounded-lg border">
+  <table hlmTable>
+    <thead hlmTHead>
+      <tr hlmTr>
+        <th hlmTh>Email</th>
+        <th hlmTh>Role</th>
+        <th hlmTh>Alerts</th>
+        <th hlmTh>Created</th>
+        <th hlmTh>Actions</th>
+      </tr>
+    </thead>
+    <tbody hlmTBody>
+      @for (user of users(); track user.id) {
+      <tr
+        hlmTr
+        [attr.data-state]="selected()?.id === user.id ? 'selected' : null"
+      >
+        <td hlmTd class="font-medium">{{ user.email }}</td>
+        <td hlmTd>{{ user.role === 'admin' ? 'Admin' : 'User' }}</td>
+        <td hlmTd class="tabular-nums">{{ user.alertCount }}</td>
+        <td hlmTd>
+          <time [attr.datetime]="user.createdAt"
+            >{{ user.createdAt | localDateTime }}</time
+          >
+        </td>
+        <td hlmTd>
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            type="button"
+            (click)="select(user)"
+          >
+            Show alerts
+          </button>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+} @if (selected(); as user) {
+<section class="mt-10" aria-labelledby="user-alerts-heading">
+  <h2 id="user-alerts-heading" class="mb-4 text-lg font-semibold">
+    Alerts of {{ user.email }}
+  </h2>
+  @if (alertsError(); as message) {
+  <p class="text-destructive text-sm">{{ message }}</p>
+  } @else if (alerts() === null) {
+  <p class="text-muted-foreground text-sm">Loading alerts.</p>
+  } @else if (alertRows().length === 0) {
+  <p class="text-muted-foreground text-sm">This user has no alerts.</p>
+  } @else {
+  <div hlmTableContainer class="rounded-lg border">
+    <table hlmTable>
+      <thead hlmTHead>
+        <tr hlmTr>
+          <th hlmTh>Name</th>
+          <th hlmTh>Category</th>
+          <th hlmTh>Filters</th>
+          <th hlmTh>Min. severity</th>
+          <th hlmTh>Enabled</th>
+        </tr>
+      </thead>
+      <tbody hlmTBody>
+        @for (row of alertRows(); track row.alert.id) {
+        <tr hlmTr>
+          <td hlmTd class="font-medium">{{ row.alert.name }}</td>
+          <td hlmTd>{{ categoryLabels[row.alert.category] }}</td>
+          <td hlmTd>
+            <span class="block max-w-xs truncate" [title]="row.summary"
+              >{{ row.summary }}</span
+            >
+          </td>
+          <td hlmTd>{{ row.alert.minSeverity }}</td>
+          <td hlmTd>{{ row.alert.enabled ? 'Yes' : 'No' }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+</section>
+}

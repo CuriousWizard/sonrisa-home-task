@@ -1,0 +1,53 @@
+<app-page-header
+  heading="Metrics"
+  description="Counts cover rows created in the last 24 hours."
+/>
+
+<div class="mb-4 flex flex-wrap items-center gap-4">
+  <button
+    hlmBtn
+    variant="outline"
+    type="button"
+    [disabled]="loading()"
+    (click)="load()"
+  >
+    Refresh
+  </button>
+  @if (metrics(); as current) {
+  <p class="text-muted-foreground text-sm">
+    Since
+    <time [attr.datetime]="current.since"
+      >{{ current.since | localDateTime }}</time
+    >.
+  </p>
+  }
+</div>
+
+@if (loadError(); as message) {
+<p class="text-destructive mb-4 text-sm">{{ message }}</p>
+} @if (metrics()) {
+<div class="grid gap-4 md:grid-cols-3">
+  @for (card of cards(); track card.id) {
+  <section hlmCard [attr.aria-labelledby]="'metrics-' + card.id">
+    <div hlmCardHeader>
+      <h2 hlmCardTitle [id]="'metrics-' + card.id">{{ card.title }}</h2>
+      @if (card.description; as description) {
+      <p hlmCardDescription>{{ description }}</p>
+      }
+    </div>
+    <div hlmCardContent>
+      <dl class="divide-y">
+        @for (row of card.rows; track row.label) {
+        <div class="flex items-center justify-between py-1.5">
+          <dt class="text-muted-foreground">{{ row.label }}</dt>
+          <dd class="font-medium tabular-nums">{{ row.value }}</dd>
+        </div>
+        }
+      </dl>
+    </div>
+  </section>
+  }
+</div>
+} @else if (!loadError()) {
+<p class="text-muted-foreground text-sm">Loading metrics.</p>
+}
