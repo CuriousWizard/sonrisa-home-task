@@ -222,6 +222,14 @@ The user then edited the README and amended the agent's README commit, and stage
 Commit last changes
 ```
 
+## 019 Commit the chat export
+
+```text
+Commit chat export
+```
+
+The agent scanned `prompts/exports/M6-chat.json` with the same patterns as V-023 before the commit. Every webhook URL match was a fake test URL, and the file holds no JWT and not the real secret.
+
 ## Chat exports
 
 Prompts 001 to 013, except 007, come from one chat. Each export of that chat holds the whole chat up to the moment of export. The "New prompts" column names the prompts that the earlier export does not have. The exports also contain `@agent Continue: "Continue to iterate?"` requests. VS Code sends one when the user clicks Continue at the tool call limit. They carry no text from the user.
@@ -231,3 +239,6 @@ Prompts 001 to 013, except 007, come from one chat. Each export of that chat hol
 | `prompts/exports/M1-chat.json`    | Prompts 001 to 003, milestones M0 and M1 |
 | `prompts/exports/M2-M3-chat.json` | Prompts 004 to 009, milestones M2 and M3 |
 | `prompts/exports/M4-M5-chat.json` | Prompts 010 to 013, milestones M4 and M5 |
+| `prompts/exports/M6-chat.json`    | Prompts 014 to 018, milestone M6         |
+
+`M6-chat.json` comes from a second chat, which started from the handoff prompt in `prompts/handoff/m6-new-chat.md`.
