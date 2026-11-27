@@ -155,6 +155,18 @@ The agent quoted the brief, "commits for each major milestone, with meaningful c
 Keep history, add milestone tags and a table
 ```
 
+## 013 Start M5
+
+```text
+Continue with M5
+```
+
+The agent installed Playwright's Chromium, found that it could not start because system libraries were missing, and asked the user to run `sudo npx playwright install-deps chromium`. The user answered:
+
+```text
+I could simply run npx without sudo. Anyway, I ran it
+```
+
 ## Chat exports
 
 | File                              | Covers                                   |

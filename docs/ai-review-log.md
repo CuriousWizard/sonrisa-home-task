@@ -268,3 +268,37 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Comparison: reviewer-gpt found all three major issues again. They are about state that can go wrong: a dropped target, a hidden live session and a toggle race. reviewer-opus found more test gaps and accessibility issues, and it traced the `.env.serve` fix through the Nx and Angular sources. One reviewer-opus finding, F8, was wrong, and only the implementer's compile error showed it.
 - Fixes: prompts `022-m4-fix-forms-auth.md` and `023-m4-fix-tables-layout.md`. Web tests went from 36 to 70.
 - Status: corrected.
+
+## V-021 M5 setup and implementer runs
+
+- AI output: two implementer runs, prompts 024 and 025, and the review fix run 027.
+- Check: before the runs, the orchestrator tested the Playwright download host with `curl` and installed Chromium into `~/.cache/ms-playwright`. A headless launch failed with "libnspr4.so: cannot open shared object file". The user installed the system libraries with `npx playwright install-deps chromium`, and the launch then worked. After each run, the orchestrator ran the new spec, `npm run e2e` and the full gate itself, and checked that ports 3000 and 4200 were free afterwards.
+- Result:
+  - All three runs returned full reports. Each prompt was scoped to one or two files.
+  - The orchestrator's first draft of prompt 024 asked the implementer to prove the test by breaking the Slack allowlist check. That check does not affect the test's own allowed URL, so the mutation could not fail any scenario. The orchestrator replaced it before sending with a mutation in `ingest.ts` that makes every delivery pending. Scenario 4 failed with it, as expected.
+  - The 024 implementer found that `loadConfig` rejects `DELIVERY_BACKOFF_BASE_MS=0`, so it set 0 on the parsed config. The design now says so.
+  - The 025 implementer removed `getReadyUrl` from the Playwright config, because with two servers Nx could hand Playwright the API's address instead of the web app's. It also turned off the e2e cache, so a second run executes the test instead of reading a cached result.
+  - The 027 implementer checked `npm run e2e` while `npm run dev` ran. Nx waited for the running servers and started no second one (D-037).
+- Status: accepted.
+
+## V-022 M5 review by two models
+
+- AI output: two reviews of commits `10ab02f..11495f5`, stored word for word in `docs/reviews/m5-opus.md` and `docs/reviews/m5-gpt.md`. The prompt is `prompts/subagents/026-review-m5.md`. The reviewer-gpt reply opens with a progress note before the review, the pattern that `docs/prompting-opus-5-5.md` describes, but the full review follows it.
+- Check: the orchestrator read `matchEvent` in `ingest.ts`. It selects every enabled alert in the category, so the e2e test's count of exactly 1 depended on what else was in the dev database. Both reviewers' major finding holds.
+- Result:
+
+| Topic                                                                                    | Opus | GPT   | Outcome            | Reason                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ---- | ----- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| The e2e count depends on other alerts, and a failed cleanup breaks later runs            | F1   | M5-02 | accepted           | Unique symbol, count at least 1, cleanup of every `E2E ` record before and after (D-037)                                 |
+| A failed step leaves Slack disabled or skips teardown                                    | F2   | M5-01 | accepted           | All channels on in `beforeAll`, the disable step inside `try`, each teardown step on its own                             |
+| Two runs on `alerts_test` interfere, because the worker claims rows across the table     | F3   | none  | accepted as a rule | The design now says one test run at a time. Scoping the worker to a test's rows would change the application for a test. |
+| The design's test and command text is out of date                                        | F4   | none  | accepted           | Updated                                                                                                                  |
+| The config comment says Playwright starts the servers, and `e2e-ci` still caches         | F5   | none  | accepted           | Comment corrected, cache off                                                                                             |
+| The Slack poll accepts any message on the hook, and the saved threshold is never checked | none | M5-03 | accepted           | The poll and the Mailpit check look for the event title, and the test reads the saved filters back                       |
+| Polls can time out behind a slow worker batch                                            | none | M5-04 | accepted           | 30 second polls, a 90 second test, and a wait for the deliveries response after Refresh                                  |
+| The free-port probe races, and the Mailpit wait uses Vitest's default                    | none | M5-05 | accepted in part   | Explicit timeouts. The probe stays, because the channel registry needs the port before the app can listen.               |
+| `BASE_URL` and server reuse can point at another stack                                   | none | M5-06 | rejected           | Reusing a running dev stack is the intended local workflow, and Nx needs `reuseExistingServer` to hand over its servers. |
+
+- Comparison: both reviewers found the major e2e isolation problem. reviewer-opus read the Nx Playwright plugin and explained how `npm run e2e` starts the servers. reviewer-gpt found the weaker assertions: the hook-only poll and the unchecked threshold.
+- Fixes: prompt `027-m5-fix-tests.md`. The orchestrator then ran the pipeline spec, `npm run e2e` and the full gate again.
+- Status: corrected.

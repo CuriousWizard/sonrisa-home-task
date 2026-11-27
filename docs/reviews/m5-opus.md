@@ -1,0 +1,41 @@
+# M5 review by reviewer-opus (Claude Opus 5.5)
+
+Prompt: `prompts/subagents/026-review-m5.md`. The text below the line is the reviewer's reply, word for word.
+
+---
+
+### Findings
+
+| ID  | Severity | Location                                      | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Evidence                                                                                                 | Suggested fix                                                                                                                                |
+| --- | -------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | major    | apps/web-e2e/src/smoke.spec.ts:105            | `deliveriesCreated: 1` counts every match in the dev database, not only this test's alert. The run fails if the dev database has another enabled market alert with empty symbols, a minimum change of 8 or less and minimum severity 1. That can be a reviewer's demo alert, or an `E2E market <old suffix>` alert left behind when cleanup failed. Cleanup at :51 deletes only the current run's names, so one failed cleanup breaks every run after it. | `matchEvent` in events/ingest.ts selects every enabled alert in the category. seed.ts creates no alerts. | Assert `>= 1`: the hook message and the admin row already prove this alert matched. Or delete every `E2E ` alert and target before the test. |
+| F2  | minor    | apps/api/src/pipeline.integration.spec.ts:387 | Slack is disabled before the `try`. If the check inside `setChannelEnabled` fails, or the run is killed during scenario 4, Slack stays off in `alerts_test`. Nothing turns it back on: `syncRegistryRows` does nothing on conflict, and worker.spec's afterEach turns only email back on. After that, scenarios 1 and 3 and ingest.spec's "two pending rows" test fail on every run.                                                                      | registry-sync.ts `onConflictDoNothing`. worker.spec.ts:81                                                | Move the disable call into the `try`. Enable all channels in `beforeAll`.                                                                    |
+| F3  | minor    | pipeline.integration.spec.ts:302, :304        | `worker.tick()` claims the 10 oldest due rows in the whole database. `deliveriesCreated` counts all alerts. The random suffixes therefore do not keep two runs on `alerts_test` apart, as with two reviewers running at once. One run's worker can claim the other run's rows and fail them, because the other run's mock port is not in its allowlist.                                                                                                   | worker.ts `claim()` has no scope. `orderBy(asc(nextAttemptAt)).limit(10)`                                | State the one-run-at-a-time rule in the design, or assert on `deliveriesOf(alertId)` instead of the global count.                            |
+| F4  | minor    | docs/design.md:407                            | The design is now out of date in three places. It says `npm run e2e` runs "against a running stack", but Nx now starts `api:serve` and `web:serve` itself. It says delivery tests use `listen({ port: 0 })`, but the spec calls `freePort()` and then listens, which leaves a small race. It points to Mailpit's `/messages`, but the spec uses `/search`.                                                                                                | `nx show project web-e2e`: e2e dependsOn `api:serve`, `web:serve`, `waitFor: ready`                      | Update the Commands and Tests sections.                                                                                                      |
+| F5  | nit      | apps/web-e2e/playwright.config.mts:8          | The comment reads as if Playwright starts the servers. Under `npm run e2e`, Nx starts them, because the plugin turns any webServer with `reuseExistingServer: true` into a dependency. `gracefulShutdown` therefore applies only to a direct `npx playwright test`. Also, `e2e-ci--src/smoke.spec.ts` still has `cache: true`.                                                                                                                            | @nx/playwright plugin.js:585. `nx show project` output                                                   | Say so in the comment. Turn caching off for `e2e-ci` too.                                                                                    |
+
+### Verified
+
+- The pipeline tests fail when the behaviour they name breaks:
+  - Scenario 1 checks that both rows are sent, that Mailpit has a `[market]` subject and that the mock Slack message holds the alert name.
+  - Scenario 3 checks failed, failed, then dead at attempt 3, and that the retry resets attempts to 0 and clears `lastError`. It also requires exactly 4 mock posts, so an extra send after dead fails the test.
+  - Scenario 4 checks `skipped` with `channel disabled`, and the email row `pending`.
+  - Scenario 2 alone would pass with a matcher that rejects everything, but scenario 1 catches that.
+- In the e2e test, wrong form values change `deliveriesCreated` or block the create. The admin row is found by its unique title, and `Sent` comes from labels.ts. While the page loads, Refresh is disabled, and `click()` waits for it.
+- Timing:
+  - The pipeline test calls `tick()` by hand.
+  - With base 0, `msFromNow(0)` makes the next retry due on the next tick.
+  - The e2e test has two 20 s polls against a 2 s worker poll inside a 60 s test timeout.
+  - `vi.waitFor` waits 1 s by default. That is low risk, because Mailpit stores a message before it answers DATA.
+- Cleanup runs on failure in both files: afterEach deletes the users, which cascades, and the events, and turns fail mode off. afterAll deletes the admin.
+- `reuseExistingServer: true` is required, because Nx already holds the ports when Playwright starts. Removing the `serve-static` CI branch fixes M2-04. `gracefulShutdown` exists in the types of Playwright 1.65.1. The fixed `retries: 0` overrides the preset's CI value.
+- Every item in the design's Integration row has a spec: auth, alerts, admin, ingest (including the duplicate rerun and skipped rows), worker (including lease expiry and stale results) and the pipeline spec. The E2E row and N5 are covered. Still untested: an email failure through real SMTP, and the source switches end to end. Neither is in the contract.
+- `nx lint` passes for `api` and `web-e2e`.
+- Both commits follow AGENTS.md. Types and scopes are valid, the summaries are imperative and lowercase with no period, the bodies explain why, and each commit touches one project.
+- Prompts 024 to 026 and `prompt-log.md` are not committed yet. M4 committed its records in a final docs commit, so this matches.
+
+### Not verified
+
+- I did not run the e2e test, the API specs or the mutation checks, because the prompt does not allow it.
+- What `npm run e2e` does while `npm run dev` is already running. Nx would try to start a second `api:serve` on port 3000.
+- The `.env` values for the rate limit, `WORKER_POLL_MS` and the Slack allowlist, because I did not print `.env`. Each run logs in 3 times. The default limit is 10 per minute.

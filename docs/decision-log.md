@@ -218,3 +218,10 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: squash each milestone into one commit and force-push main, squash only the unpushed M4 commits, keep the history and add annotated tags.
 - Decided by: user, after the orchestrator quoted the brief.
 - Reason: the brief asks for "commits for each major milestone, with meaningful commit messages", not for one commit each. The separate commits are evidence: `28355cf` and `4b33480` show what the M1 reviews changed, and the `fix:` commits after M3 and M4 show what the code reviews changed. Squashing M0 to M3 would also need a force push of main. Tags `m0` to `m4` and the table in `docs/plan.md` make each milestone easy to find.
+
+## D-037 The e2e test runs on the dev database
+
+- Options: a separate e2e database with its own API instance, the dev database with the seeded users.
+- Decided by: orchestrator.
+- Reason: a second database would need a second API configuration and a second migrate and seed step for one test. The test instead uses a unique symbol and names that start with `E2E `, and deletes every `E2E ` alert and target before and after it runs, so a failed run cannot break the next one. Its assertions count only its own deliveries. The injected events stay in the dev database, because the API has no route to delete events.
+- Consequence: `npm run e2e` while `npm run dev` runs reuses the running servers. Nx prints "Waiting for api:serve in another nx process" and starts no second server.

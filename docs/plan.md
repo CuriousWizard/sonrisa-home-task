@@ -49,8 +49,9 @@ An annotated tag marks the last commit of each milestone, so `git log m2..m3` sh
 | `m2` | `470af59..d637df1`, 4 commits  | Nx workspace, Docker Compose, shared schemas, M2 reviews, reviewer files checked against the Opus 5.5 prompting guide |
 | `m3` | `50d61a3..00fbbf3`, 11 commits | Backend in six parts, M3 review fixes, M3 docs, M2 and M3 chat export                                                 |
 | `m4` | `4add287..0edb6b8`, 6 commits  | Web app in three parts, M4 review fixes, M4 docs                                                                      |
+| `m5` | `c6ca80e..m5`, 5 commits       | Milestone tags and the M6 handoff prompt, pipeline integration test, Playwright smoke test, M5 review fixes, M5 docs  |
 
-The tags for M5 and M6 are added when those milestones end.
+The tag for M6 is added when that milestone ends.
 
 ## Order and reasons
 

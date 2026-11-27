@@ -1,6 +1,6 @@
 # M6 handoff prompt
 
-The first chat ran M0 to M5 and filled its context. Paste the text block below as the first message of a new VS Code agent chat on Claude Opus 5.5. The orchestrator of the first chat wrote it after M4 and updates the "State at handoff" section when M5 ends.
+The first chat ran M0 to M5 and filled its context. Paste the text block below as the first message of a new VS Code agent chat on Claude Opus 5.5. The orchestrator of the first chat wrote it after M4 and updated the "State at handoff" section when M5 ended.
 
 ```text
 You are the orchestrator for milestone M6 of an interview submission in /home/davidt/project/sonrisa-home-task. A previous chat ran M0 to M5 and ran out of context. This prompt carries what that chat learned. Read the files it names before you act, and check every fact here against the repository, because the repository wins when they disagree.
@@ -20,7 +20,7 @@ The graders evaluate the process, not the product: how the AI was directed, whic
 5. docs/ai-review-log.md
 6. docs/prompting-opus-5-5.md
 7. prompts/prompt-log.md and the newest files in prompts/subagents/
-8. git log --oneline m4..HEAD, for M5
+8. git log --oneline m4..m5, for M5
 
 ## M6 scope
 
@@ -76,12 +76,13 @@ These rules come from M0 to M5. The evidence is in the AI review log.
 
 ## State at handoff
 
-- M0 to M4 are committed and tagged m0 to m4. docs/plan.md maps each tag to its commits.
-- M5 adds API integration tests and one Playwright smoke test. Read git log m4..HEAD and the AI review log entries after V-020 for its outcome.
+- M0 to M5 are committed and tagged m0 to m5. docs/plan.md maps each tag to its commits.
+- M5 added apps/api/src/pipeline.integration.spec.ts, which runs the app on a real port with real channels, Mailpit and the mock Slack receiver, and apps/web-e2e/src/smoke.spec.ts, one Playwright test of the whole flow from sign-in to the admin's delivery list. npm run e2e passes and starts or reuses both dev servers through Nx. Playwright's Chromium is installed in ~/.cache/ms-playwright with its system libraries, so the repository's Playwright can take README screenshots from the shell. Details are in V-021, V-022 and D-037.
 - Open items:
   - V-016: no test has compared Claude Opus 5.5 at medium effort with xhigh. Close it with a reason or leave it open in the closing entry.
   - Lint warnings: an unused _enabled in libs/shared/src/lib/alerts.spec.ts, and the web bundle budget.
-  - Deferred review findings in V-014, V-018 and V-020.
+  - Deferred review findings in V-014, V-018, V-020 and V-022.
+  - The e2e test leaves its injected events in the dev database (D-037).
   - Known limits in docs/design.md and day-two candidates in docs/plan.md.
 - Chat exports: prompts/exports/M1-chat.json and M2-M3-chat.json. The first chat's export for M4 and M5 should be there too. If it is missing, ask the user for it.
 ```
