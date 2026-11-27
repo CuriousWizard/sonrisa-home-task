@@ -349,7 +349,7 @@ Failure rate for a channel is `dead / (sent + dead)`. It is 0 when both counts a
 
 ## Web app
 
-Angular 22 with standalone components and signals, using the defaults that `@nx/angular` generates. UI components come from spartan-ng with Tailwind 4.
+Angular 22 with standalone components and signals, using the defaults that `@nx/angular` generates. UI components come from spartan-ng with Tailwind 4. Selects and checkboxes are plain HTML elements styled with the theme classes, because the spartan versions need `@ng-icons`, which the configured npm registry does not serve (D-034). News keywords are entered one per line, so a keyword can contain a comma.
 
 | Route                    | Access | Content                                                                                  |
 | ------------------------ | ------ | ---------------------------------------------------------------------------------------- |
@@ -402,7 +402,7 @@ SEED_USER_PASSWORD=user-password-123
 | Command         | Does                                                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run setup` | writes `.env` from `.env.example` with a random `JWT_SECRET` if `.env` is missing, runs `docker compose up -d`, applies migrations to both databases, seeds the two users |
-| `npm run dev`   | serves the API and the web app with Nx                                                                                                                                    |
+| `npm run dev`   | serves the API and the web app with Nx. `apps/web/.env.serve` sets `PORT=4200` for the web server (D-035)                                                                 |
 | `npm test`      | runs unit and integration tests                                                                                                                                           |
 | `npm run e2e`   | runs the Playwright test against a running stack                                                                                                                          |
 

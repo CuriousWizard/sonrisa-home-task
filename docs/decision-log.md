@@ -200,3 +200,15 @@ Each entry records what was decided, which options were considered, who decided,
 - Options: renew the lease while a send runs, wrap each send in a total deadline.
 - Decided by: orchestrator, after reviewer-gpt M3-03.
 - Reason: Nodemailer's `socketTimeout` limits idle time, so a slow server could keep a send alive past the 60 second lease. A 20 second deadline per send is simpler than lease renewal. `config.ts` rejects a lease below twice the deadline.
+
+## D-034 Plain select and checkbox elements
+
+- Options: spartan native-select and checkbox, the same components edited by hand to drop the icons, plain elements styled with the theme classes.
+- Decided by: orchestrator, after the implementer for prompt 019 reported the blocker and the orchestrator confirmed it.
+- Reason: both spartan components import `@ng-icons/core` and `@ng-icons/lucide`. `npm view @ng-icons/core` returns 404 on the npm registry this machine is configured to use, so the generated code cannot compile. Editing generated components by hand breaks the next CLI update. Plain elements keep native keyboard behaviour and labels.
+- Revisit if the registry serves `@ng-icons`.
+
+## D-035 `apps/web/.env.serve` sets the web port
+
+- Decided by: the implementer for prompt 017 added the file without reporting it. The orchestrator found it in the tree and accepted it.
+- Reason: Nx loads the root `.env` into every task, and the root `.env` sets `PORT=3000` for the API. The Angular dev server prefers `PORT` over its `port` option, so `nx serve web` tried to take the API's port. Nx loads a task-specific `.env.serve` before the root file, so `PORT=4200` there wins for the web app only. reviewer-opus traced both rules in the package sources.
