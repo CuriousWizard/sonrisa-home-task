@@ -1,43 +1,48 @@
 #!/usr/bin/env tsx
 // @nx-target-name: serve
-import Fastify from 'fastify';
-import { app } from './app/app';
+import { buildApp } from './app';
+import { loadConfig, loadRootEnvFile } from './config';
+import { createDb } from './db/client';
 
-const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+async function main(): Promise<void> {
+  loadRootEnvFile();
+  const config = loadConfig(process.env);
+  const { db, pool } = createDb(config.DATABASE_URL);
+  const app = await buildApp(config, { db });
+  app.addHook('onClose', async () => {
+    await pool.end();
+  });
 
-// Instantiate Fastify with some config
-const server = Fastify({
-  logger: true,
-});
-
-// Register your application as a normal plugin.
-server.register(app);
-
-// Start listening.
-server.listen({ port, host }, (err) => {
-  if (err) {
-    server.log.error(err);
-    process.exit(1);
-  } else {
-    console.log(`[ ready ] http://${host}:${port}`);
-    // Set when Nx waits for this server to be ready
-    if (process.env.NX_READY_SIGNAL_SOCKET) {
-      // Function keeps TypeScript and bundlers from rewriting or bundling the import.
-      // Not awaited: Fastify warns when a listen callback is async.
-      const load = new Function('s', 'return import(s)') as (
-        s: string,
-      ) => Promise<{ emitReadySignal(server: unknown): boolean }>;
-      load('@nx/js/ready-signal')
-        .then((readySignal) => readySignal.emitReadySignal(server.server))
-        .catch(() => {
-          // @nx/js isn't installed
-        });
+  let closing = false;
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+    if (closing) {
+      return;
     }
-  }
-});
+    closing = true;
+    app.log.info(`${signal} received, closing the server`);
+    await app.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', (signal) => void shutdown(signal));
+  process.on('SIGTERM', (signal) => void shutdown(signal));
 
-process.on('SIGTERM', async () => {
-  await server.close();
-  process.exit(0);
+  await app.listen({ port: config.PORT, host: 'localhost' });
+
+  // Set when Nx waits for this server to be ready
+  if (process.env.NX_READY_SIGNAL_SOCKET) {
+    // Function keeps TypeScript and bundlers from rewriting or bundling the import.
+    const load = new Function('s', 'return import(s)') as (
+      s: string,
+    ) => Promise<{ emitReadySignal(server: unknown): boolean }>;
+    load('@nx/js/ready-signal')
+      .then((readySignal) => readySignal.emitReadySignal(app.server))
+      .catch(() => {
+        // @nx/js isn't installed
+      });
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
 });

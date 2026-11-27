@@ -8,7 +8,10 @@
     "build": "nx run-many -t build",
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
-    "e2e": "nx run web-e2e:e2e"
+    "e2e": "nx run web-e2e:e2e",
+    "db:generate": "cd apps/api && drizzle-kit generate",
+    "db:migrate": "tsx --tsconfig apps/api/tsconfig.app.json apps/api/src/db/migrate.ts",
+    "db:seed": "tsx --tsconfig apps/api/tsconfig.app.json apps/api/src/db/seed.ts"
   },
   "private": true,
   "engines": {
@@ -39,9 +42,11 @@
     "@swc/helpers": "~0.5.18",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^26.6.11",
+    "@types/pg": "^8.23.1",
     "@typescript-eslint/utils": "^8.58.0",
     "@vitest/coverage-v8": "~5.0.1",
     "angular-eslint": "^22.5.0",
+    "drizzle-kit": "^0.31.11",
     "esbuild": "^0.27.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
@@ -69,13 +74,17 @@
     "@angular/forms": "~22.3.0",
     "@angular/platform-browser": "~22.3.0",
     "@angular/router": "~22.3.0",
-    "@fastify/autoload": "~6.5.0",
-    "@fastify/sensible": "~6.0.6",
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/rate-limit": "^11.3.0",
     "@spartan-ng/brain": "^1.10.1",
     "class-variance-authority": "^0.7.0",
     "cn": "^0.5.2",
+    "drizzle-orm": "^0.45.4",
     "fastify": "~5.12.5",
     "fastify-plugin": "~6.0.0",
+    "jose": "^6.2.18",
+    "nodemailer": "^10.6.1",
+    "pg": "^8.23.1",
     "rxjs": "~7.8.0",
     "zod": "^4.6.7"
   }

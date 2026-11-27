@@ -44,6 +44,16 @@ if (compose.error || compose.status !== 0) {
   );
 }
 
-// M3: apply migrations to both databases and seed the two users here.
-
 console.log('Postgres and Mailpit are healthy.');
+
+for (const script of ['db:migrate', 'db:seed']) {
+  const result = spawnSync('npm', ['run', script], {
+    cwd: root,
+    stdio: 'inherit',
+    // npm is a .cmd file on Windows, which spawnSync runs only through a shell.
+    shell: process.platform === 'win32',
+  });
+  if (result.error || result.status !== 0) {
+    fail(`"npm run ${script}" did not succeed.`);
+  }
+}
