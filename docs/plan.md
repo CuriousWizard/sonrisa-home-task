@@ -73,7 +73,7 @@ In the working tree, not committed (V-024):
 Left, in this order:
 
 1. Start the stack with `DELIVERY_BACKOFF_BASE_MS=2000 npm run dev` and run `npm run screenshots`. Look at each PNG. Run `npx nx run-many -t build lint test --skip-nx-cache`, because the table change has not been through it. Commit the script, the table change and the PNGs.
-2. Write `README.md`, which holds one line today. It covers what the app does, the stack and the AI tooling, prerequisites, the setup, run and test commands, the seeded users, the demo script, where the process artifacts are, known limits and the day-two list, and the screenshots. Run the demo script by hand before the commit.
+2. Finish `README.md`. A quick version without screenshots was written after the stop (prompt 017). It still needs the screenshots and a run of its demo steps by hand.
 3. Send one review prompt for the whole repository to both reviewers. Save the replies in `docs/reviews/m6-opus.md` and `docs/reviews/m6-gpt.md`, and record each finding in the AI review log.
 4. Write the closing entry of the AI review log: what each reviewer model found and missed, how the implementers failed, and what the orchestrator caught. It lists the open items:
    - V-016, the effort test for Claude Opus 5.5. The user chose to leave it open.

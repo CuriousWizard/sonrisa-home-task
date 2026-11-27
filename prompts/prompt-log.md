@@ -208,6 +208,12 @@ Document these into markdown files, commit and push them
 
 "These" refers to the agent's list. The agent wrote it into the "M6 status" section of `docs/plan.md` and into V-024 of the AI review log.
 
+## 017 Quick README
+
+```text
+Create a quick readme
+```
+
 ## Chat exports
 
 Prompts 001 to 013, except 007, come from one chat. Each export of that chat holds the whole chat up to the moment of export. The "New prompts" column names the prompts that the earlier export does not have. The exports also contain `@agent Continue: "Continue to iterate?"` requests. VS Code sends one when the user clicks Continue at the tool call limit. They carry no text from the user.
