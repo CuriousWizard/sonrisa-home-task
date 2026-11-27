@@ -9,6 +9,7 @@ import { createSessionTokens, type SessionTokens } from './auth/session';
 import type { ChannelRegistry } from './channels/registry';
 import type { Config } from './config';
 import type { Db } from './db/client';
+import { devRoutes } from './dev/routes';
 import { targetRoutes } from './targets/routes';
 
 declare module 'fastify' {
@@ -101,6 +102,9 @@ export async function buildApp(
   await app.register(authRoutes, { prefix: '/api/auth', config });
   await app.register(targetRoutes, { prefix: '/api/targets' });
   await app.register(alertRoutes, { prefix: '/api/alerts' });
+  if (config.NODE_ENV !== 'production') {
+    await app.register(devRoutes, { prefix: '/api/dev' });
+  }
 
   return app;
 }
