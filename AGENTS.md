@@ -76,7 +76,7 @@ Follow the [Angular commit message guidelines](https://github.com/angular/angula
 ```
 
 - Type is one of `build`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `test`.
-- Scope is optional. Use `api`, `web`, `shared`, `e2e` or `infra`. Leave the scope empty for repository-wide docs.
+- Scope is optional. Use `api`, `web`, `shared`, `e2e` or `infra`. Leave the scope empty for repository-wide docs and for commits that change more than one project or root files.
 - Write the summary in the imperative present tense, start it with a lowercase letter, and leave out the final period.
 - Every commit except `docs` needs a body of at least 20 characters that explains why.
 

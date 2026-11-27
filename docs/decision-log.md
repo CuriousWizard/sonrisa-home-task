@@ -176,3 +176,27 @@ Each entry records what was decided, which options were considered, who decided,
 - Reason: the guide describes two behaviours that would hurt a reviewer subagent. The model can end its turn with a progress note, which returns a partial review. It also starts work quickly and reads only what the task names. Both new lines are model-neutral, so both files get them and the bodies stay identical, as D-012 requires.
 - Consequence: reviews from M3 on use the new body. The M1 and M2 reviews used the old one, because the change was made on a separate branch while M2 ran on main. The notes on the guide are in `docs/prompting-opus-5-5.md`.
 - Numbering: this entry was D-026 on the `docs/opus-5-5-prompting` branch. It was renumbered when the branch came into main.
+
+## D-030 jose signs the session JWT
+
+- Options: `@fastify/jwt`, `jose`.
+- Decided by: the implementer for prompt 007 chose `jose` without being asked and without reporting it. The orchestrator found it while checking the tree and accepted it.
+- Reason: `jose` is maintained by panva (`github.com/panva/jose`), has no dependencies, and lets the code pin HS256 and require `exp` and `sub` in one call. The guards never use the token's role claim, so the plugin's request decorators were not needed. Both M3 reviewers called the choice sound.
+
+## D-031 M3 committed per part, reviewed as a whole
+
+- Options: one M3 commit after review, one commit per implementer part with one review of the combined diff.
+- Decided by: orchestrator.
+- Reason: M3 ran as six implementer prompts in sequence, because long runs returned no report (V-011, V-017). A commit after each verified part gives every later part a known-good base and lets the orchestrator roll back one part. The two reviewers then read `d637df1..HEAD` in one pass. The review fixes form a separate commit, so the history shows what the review changed.
+
+## D-032 Claim token fences delivery results
+
+- Options: fence result writes on the attempt count, fence on a random token set at each claim.
+- Decided by: orchestrator, after reviewer-gpt M3-02.
+- Reason: admin retry resets `attempts` to 0, so an old claim and a new claim can carry the same attempt count. A token from `gen_random_uuid()` is different at every claim. The attempt count stays for backoff and the attempt limit.
+
+## D-033 Total send deadline below the lease
+
+- Options: renew the lease while a send runs, wrap each send in a total deadline.
+- Decided by: orchestrator, after reviewer-gpt M3-03.
+- Reason: Nodemailer's `socketTimeout` limits idle time, so a slow server could keep a send alive past the 60 second lease. A 20 second deadline per send is simpler than lease renewal. `config.ts` rejects a lease below twice the deadline.

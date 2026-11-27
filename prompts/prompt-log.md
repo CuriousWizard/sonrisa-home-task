@@ -123,6 +123,12 @@ I want you to look at sonrisa-opus-prompting worktree. There you will see prompt
 Create a commit including those updates here in main.
 ```
 
+## 009 Push M2, start M3
+
+```text
+Back to M2: looks good so you can push it. Continue with M3.
+```
+
 ## Chat exports
 
 | File                           | Covers                                   |

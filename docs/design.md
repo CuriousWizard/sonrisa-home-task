@@ -43,7 +43,7 @@ sequenceDiagram
   participant C as Channel
   S->>I: NewEvent
   I->>DB: BEGIN, insert event
-  I->>DB: select enabled alerts where category matches and min_severity <= severity
+  I->>DB: select enabled alerts where category matches and min_severity <= severity, for key share
   I->>I: matchesFilters(event, alert) for each alert
   I->>DB: insert deliveries ... on conflict do nothing
   I->>DB: COMMIT
@@ -70,12 +70,14 @@ Filter matching runs in TypeScript, not SQL. The SQL query only narrows by categ
 apps/
   api/src/
     main.ts              starts the server, scheduler and worker
-    app.ts               buildApp(config) for tests and main
+    app.ts               buildApp(config, deps) for tests and main
     config.ts            reads env with zod and rejects unsafe values
-    db/                  schema.ts, client.ts (pg driver), migrations/ (drizzle-kit), seed.ts
-    auth/                routes, password.ts, plugin with requireUser and requireAdmin
-    targets/             routes, service
-    alerts/              routes, service
+    http-error.ts        error type that carries an HTTP status
+    safe-error-log.ts    turns errors into log objects without SQL or bound values
+    db/                  schema.ts, client.ts (pg driver), migrations/ (drizzle-kit), migrate.ts, seed.ts, registry-sync.ts
+    auth/                routes.ts, guards.ts (requireUser, requireAdmin), password.ts, session.ts (jose)
+    targets/             routes.ts
+    alerts/              routes.ts
     events/              ingest.ts
     matching/            match.ts, severity.ts
     delivery/            worker.ts, backoff.ts, message.ts
@@ -174,15 +176,16 @@ stateDiagram-v2
   - the row's channel is enabled
   - `attempts < DELIVERY_MAX_ATTEMPTS`
   - status is `pending` or `failed` with `next_attempt_at <= now()`, or status is `sending` with an expired lease, meaning `next_attempt_at <= now()`
-- The claim sets status `sending`, increments `attempts`, and sets `next_attempt_at = now() + DELIVERY_LEASE_MS` as a lease.
+- The claim sets status `sending`, increments `attempts`, sets `next_attempt_at = now() + DELIVERY_LEASE_MS` as a lease, and sets `claim_token` to a new random UUID.
 - Before each claim, one more statement sets `dead` on every `sending` row whose lease has expired and whose `attempts >= DELIVERY_MAX_ATTEMPTS`. A crash during the last attempt therefore never leads to an extra send.
 - Rows whose channel is disabled after they were created keep their status. The claim ignores them until the admin enables the channel again.
-- The worker sends all claimed rows at the same time with `Promise.allSettled`. Each send has a deadline well below the 60 second lease. Slack uses a 5 second `AbortSignal.timeout`. Nodemailer uses `connectionTimeout`, `greetingTimeout` and `socketTimeout` of 10 seconds each. The Nodemailer defaults run up to 10 minutes, which would outlive the lease.
-- Every result update is fenced with `WHERE id = :id AND status = 'sending' AND attempts = :claimedAttempts`. If no row matches, a newer claim owns the row and the worker drops the stale result.
+- The worker starts all claimed sends at the same time and writes each result as soon as its own send settles, so one slow send does not hold back the other results. The tick returns after every send and write has finished.
+- Each send has a total deadline of `DELIVERY_SEND_TIMEOUT_MS`, 20 seconds by default. A send that passes it counts as failed with `send timed out`. The deadline does not cancel the send, so the message can still arrive. Inside the deadline, Slack uses a 5 second `AbortSignal.timeout` and Nodemailer uses `connectionTimeout`, `greetingTimeout` and `socketTimeout` of 10 seconds each. `socketTimeout` limits idle time only, which is why the total deadline exists. `config.ts` rejects a `DELIVERY_LEASE_MS` below twice the send deadline.
+- Every result update is fenced with `WHERE id = :id AND status = 'sending' AND claim_token = :claimToken`. If no row matches, a newer claim owns the row and the worker drops the stale result. The attempt count is not enough as a fence, because admin retry resets it to 0.
 - The next poll is scheduled with `setTimeout` after the batch finishes, so polls never overlap.
 - Delivery is at least once. A crash after a successful send and before the result update sends the message again on the next claim. A lost alert is worse than a repeated one.
 - Backoff after failed attempt n: `DELIVERY_BACKOFF_BASE_MS * 2^(n-1)`, plus up to 10% random jitter. With the default base of 30 seconds, the waits are 30 s, 60 s, 120 s and 240 s. The fifth failure sets `dead`. `computeBackoff(attempt, baseMs, random)` takes `random` as an argument so tests are deterministic.
-- Admin retry (R14) is one conditional `UPDATE ... WHERE id = :id AND status IN ('failed', 'dead', 'skipped') RETURNING id`. It sets status `pending`, `attempts = 0`, `next_attempt_at = now()` and clears `last_error`. If no row comes back, the route returns 409.
+- Admin retry (R14) is one conditional `UPDATE ... WHERE id = :id AND status IN ('failed', 'dead', 'skipped') RETURNING id`. It sets status `pending`, `attempts = 0`, `next_attempt_at = now()`, `claim_token = null` and clears `last_error`. If no row comes back, the route returns 409.
 - `last_error` holds a short message such as `Slack responded 500` or `SMTP timeout`. It never contains the webhook URL or SMTP credentials.
 
 ## Matching rules
@@ -226,7 +229,7 @@ interface NotificationMessage {
 }
 ```
 
-`delivery/message.ts` builds one `NotificationMessage` from an event and an alert. Email sends `subject` and `text`. Slack posts `{ "text": "*<subject>*\n<text>" }` and treats any status outside 200 to 299 as a failure.
+`delivery/message.ts` builds one `NotificationMessage` from an event and an alert. Email sends `subject` and `text`. Slack posts `{ "text": "*<subject>*\n<text>" }` with `&`, `<` and `>` escaped, so event text cannot create Slack mentions such as `<!channel>`. and treats any status outside 200 to 299 as a failure.
 
 To add a channel:
 
@@ -252,16 +255,16 @@ The scheduler keeps one `setTimeout` chain per registered source and calls `next
 
 | Concern                 | Measure                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Password storage        | `node:crypto` scrypt with a 16-byte random salt. Stored as `scrypt$N$r$p$salt$hash`. Compared with `timingSafeEqual`. No native module is needed.                                                                                                                                                                                                                                                                                                                                                                         |
-| Session                 | JWT signed with HS256 and `JWT_SECRET`. Verification pins the algorithm to HS256 and reads the token only from the cookie. Claims are `sub` and `role`. Expiry is 8 hours. The cookie is named `session`, has `Path=/`, no `Domain` attribute, `HttpOnly`, `SameSite=Strict`, and `Secure` in production.                                                                                                                                                                                                                 |
+| Password storage        | `node:crypto` scrypt with N 16384, r 8, p 5, which is one of the OWASP minimum settings, and a 16-byte random salt. Stored as `scrypt$N$r$p$salt$hash`, so hashes made with older parameters still verify. Compared with `timingSafeEqual`. No native module is needed. |                                                                                                                                                                                                                                                                                                                                                                         |
+| Session                 | JWT signed with HS256 and `JWT_SECRET` through `jose` (D-030). Verification pins the algorithm to HS256, requires the `exp` and `sub` claims, and reads the token only from the cookie. Claims are `sub` and `role`. Expiry is 8 hours. The cookie is named `session`, has `Path=/`, no `Domain` attribute, `HttpOnly`, `SameSite=Strict`, and `Secure` in production.                                                                                                                                                                                                                 |
 | Secret                  | `config.ts` rejects a `JWT_SECRET` shorter than 32 characters or equal to the placeholder in `.env.example`. `npm run setup` writes a random 48-byte secret into `.env`.                                                                                                                                                                                                                                                                                                                                                  |
 | CSRF                    | `SameSite=Strict` stops browsers from sending the cookie on cross-site requests, including bodyless POSTs. The app removes Fastify's default `text/plain` parser, so routes with a body accept only `application/json`.                                                                                                                                                                                                                                                                                                   |
 | Authorization           | `requireUser` verifies the JWT and loads the user from the database, so a deleted user loses access at once. `requireAdmin` checks the role from that database row, not from the token. Every admin route uses `requireAdmin`.                                                                                                                                                                                                                                                                                            |
 | Object access           | Every target and alert query filters by `user_id`. A request for another user's object returns 404. Alert `targetIds` must belong to the same user.                                                                                                                                                                                                                                                                                                                                                                       |
-| Brute force             | `@fastify/rate-limit` on `/api/auth/login` and `/api/auth/register`. The limit is `AUTH_RATE_LIMIT_MAX` requests per minute per IP, 10 by default. Tests raise it.                                                                                                                                                                                                                                                                                                                                                        |
+| Brute force             | `@fastify/rate-limit` on `/api/auth/login`, `/api/auth/register` and `/api/targets/:id/test`. The limit is `AUTH_RATE_LIMIT_MAX` requests per minute per IP, 10 by default. Tests raise it.                                                                                                                                                                                                                                                                                                                                                        |
 | Input validation        | Handlers parse every body, query and params object with the shared zod schemas. The error handler turns a `ZodError` into a 400 response. Drizzle parameterizes all queries.                                                                                                                                                                                                                                                                                                                                              |
 | SSRF through Slack URLs | At startup, `config.ts` checks each entry in `SLACK_WEBHOOK_ALLOWED_PREFIXES`: it must parse as a URL, end with `/`, and have no user or password. An `http:` prefix is allowed only when `NODE_ENV` is not `production`. For a target URL, `slack-url.ts` parses it with `new URL()`, rejects a user or password, and checks that `origin + pathname` starts with an allowed prefix. The check runs on target create and again before each send. The request goes to the normalized `url.href` with `redirect: 'error'`. |
-| Secrets in errors       | Errors stored in `last_error` or returned by the test route never contain the webhook URL or SMTP credentials. Admin delivery responses show the target name, not its config.                                                                                                                                                                                                                                                                                                                                             |
+| Secrets in errors       | Errors stored in `last_error` or returned by the test route never contain the webhook URL or SMTP credentials. Admin delivery responses show the target name, not its config. Logs get errors through `safeErrorLog`, because a Drizzle query error quotes the SQL and the bound values, which can include a password hash or a webhook URL.                                                                                                                                                                                                                                                                                                                                             |
 | Dev routes              | `/api/dev/*` is registered only when `NODE_ENV !== 'production'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## HTTP API
@@ -281,7 +284,7 @@ All routes start with `/api`. Errors use the Fastify default shape `{ statusCode
 
 | Method and path        | Body          | Result                                                                                                                                      |
 | ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET /targets           | none          | the user's targets                                                                                                                          |
+| GET /targets           | `limit`       | the user's targets                                                                                                                          |
 | POST /targets          | `TargetInput` | 201. 400 if the config fails the schema or the Slack allowlist                                                                              |
 | DELETE /targets/:id    | none          | 204. 409 if an alert still uses the target                                                                                                  |
 | POST /targets/:id/test | none          | sends a test message at once, without the queue. 409 if the channel is disabled. Otherwise returns `{ ok: true }` or `{ ok: false, error }` |
@@ -290,7 +293,7 @@ All routes start with `/api`. Errors use the Fastify default shape `{ statusCode
 
 | Method and path    | Body                                          | Result                                  |
 | ------------------ | --------------------------------------------- | --------------------------------------- |
-| GET /alerts        | none                                          | the user's alerts with their target ids |
+| GET /alerts        | `limit`                                       | the user's alerts with their target ids |
 | POST /alerts       | `AlertInput`. `targetIds` has at least one id | 201                                     |
 | GET /alerts/:id    | none                                          | one alert                               |
 | PUT /alerts/:id    | `AlertInput`                                  | 200                                     |
@@ -304,7 +307,7 @@ All routes start with `/api`. Errors use the Fastify default shape `{ statusCode
 | Method and path                  | Query or body                | Result                                                              |
 | -------------------------------- | ---------------------------- | ------------------------------------------------------------------- |
 | GET /admin/users                 | `limit`                      | users with alert counts                                             |
-| GET /admin/alerts                | `userId`                     | that user's alerts                                                  |
+| GET /admin/alerts                | `userId`, `limit`            | that user's alerts                                                  |
 | GET /admin/events                | `category`, `limit`          | events, newest first                                                |
 | GET /admin/deliveries            | `status`, `channel`, `limit` | deliveries with event title, alert name, target name and user email |
 | POST /admin/deliveries/:id/retry | none                         | 200. 409 unless the status is `failed`, `dead` or `skipped`         |
@@ -383,6 +386,7 @@ WORKER_POLL_MS=2000
 DELIVERY_MAX_ATTEMPTS=5
 DELIVERY_BACKOFF_BASE_MS=30000
 DELIVERY_LEASE_MS=60000
+DELIVERY_SEND_TIMEOUT_MS=20000
 SOURCE_MIN_INTERVAL_MS=20000
 SOURCE_MAX_INTERVAL_MS=60000
 SEED_ADMIN_EMAIL=admin@example.local
@@ -414,7 +418,8 @@ Integration tests read Mailpit through its REST API at `http://localhost:8025/ap
 
 ## Known limits
 
-- Delivery is at least once. See Delivery states.
+- Delivery is at least once. See Delivery states. A send that passes its deadline may still arrive, and a retry then sends it again.
+- Ingest and the alert routes lock alert and target rows `FOR KEY SHARE`. A concurrent delete waits for the transaction instead of failing it. A concurrent edit of an alert's filters does not wait, so an event can match the old filters.
 - Logout clears the cookie but does not revoke the token. A copied token stays valid until it expires, at most 8 hours.
 - `SameSite=Strict` trusts every origin on the same site, such as a sibling subdomain. The app runs on localhost only, so day one has no `Origin` header check.
 - Deleting an alert or target deletes its delivery history.

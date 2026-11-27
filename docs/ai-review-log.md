@@ -181,3 +181,44 @@ Status values: `accepted`, `corrected`, `rejected`, `open`.
 - Open: the effort for Claude Opus 5.5 is a VS Code setting that only the user can change. The two defects in V-007 give a small test. Run the M1 design review on reviewer-opus at `medium` and check whether it still finds both.
 - Numbering: this entry was V-011 on the `docs/opus-5-5-prompting` branch. It was renumbered when the branch came into main, because main had used V-011 to V-015 for M2 in the meantime.
 - Status: corrected for the body. The effort question is open.
+
+## V-017 M3 implementer runs
+
+- AI output: seven implementer runs for M3, prompts 007 to 013.
+- Check: after each run, the orchestrator read the changed files, reran `nx run-many -t build lint test --skip-nx-cache` and committed only when it passed.
+- Result:
+  - Prompt 007 wrote the platform code, migrated and seeded both databases, then returned an empty message. It wrote no tests. It also swapped `@fastify/jwt` for `jose` without saying so (D-030). The orchestrator's build found two errors: `apps/api/package.json` still listed `@fastify/autoload`, which broke lockfile pruning, and a drizzle enum type error. Prompt 008 fixed both and wrote the tests.
+  - Prompts 009 to 013 were each scoped to one area and all returned full reports. Each report listed deviations that the orchestrator then checked, such as the Slack text escaping in 009 and the `FOR KEY SHARE` locks in 010 and 011.
+  - The implementer for 011 reported that swapped source interval values would give a near-zero poll delay. Prompt 012 added a config check.
+  - The implementer for 012 reported that one requested test could not fail without its rule, because an earlier step already covered the case. It added a test that does fail.
+- Orchestrator end-to-end check, run twice, after 012 and after the review fixes: health 200, login 200, a Slack target on `https://hooks.slack.com.evil.com/services/x` rejected with 400, an earthquake of magnitude 5.5 created 0 deliveries, magnitude 7.1 created 2. The mock Slack receiver got the message within 6 seconds and the Mailpit message count went up by 1. The API log had no error-level lines.
+- Status: accepted.
+
+## V-018 M3 review by two models
+
+- AI output: two reviews of commits `50d61a3..c980484`, stored word for word in `docs/reviews/m3-opus.md` and `docs/reviews/m3-gpt.md`. The prompt is `prompts/subagents/014-review-m3.md`. Both reviewers used the reviewer body from D-029 for the first time.
+- Check: the orchestrator reran two claims before accepting them.
+  - `DrizzleQueryError` in `node_modules/drizzle-orm/errors.js` builds its message as `Failed query: <sql>\nparams: <params>`, and `app.ts` logged the whole error. M3-01 holds.
+  - `session.ts` called `jwtVerify` with `algorithms` only, so a token without `exp` was accepted. M3-06 holds. reviewer-opus had listed "`exp` is checked" as verified, which is true only when the claim is present.
+- Result:
+
+| Topic | Opus | GPT | Outcome | Reason |
+| --- | --- | --- | --- | --- |
+| Database errors in logs carry bound values | none | M3-01 | accepted | `safeErrorLog` in the error handler, scheduler, worker and seed, with a test that fails on the raw error |
+| Admin retry lets an old claim pass the attempts fence | none | M3-02 | accepted | D-032 |
+| Batch waits for the slowest send; SMTP has no total deadline | none | M3-03 | accepted | D-033, and results are written per row |
+| Lists ignore `limit` | none | M3-04 | accepted for lists | Targets, alerts and admin alerts. Ignoring unknown query keys on routes without inputs is harmless, so that part is rejected. |
+| scrypt p=1 below OWASP | none | M3-05 | accepted | p=5. Rehash on login is rejected, because no real users exist. |
+| `jwtVerify` does not require `exp` | none | M3-06 | accepted | `requiredClaims: ['exp', 'sub']` |
+| Stale-result and two-tick tests prove less than their names | F5 | M3-07 | accepted | A real reclaim test, a SKIP LOCKED test that fails without `skipLocked`, and a renamed test |
+| PUT and metrics fixtures pass with wrong code | none | M3-08 | accepted | Fixtures now separate the cases |
+| Test route has no rate limit | F1 | none | accepted | Same limit as the auth routes |
+| No test that the admin role comes from the database | F2 | none | accepted | A user row with an admin token gets 403 |
+| No test for cookie attributes or 429 | F3 | none | accepted | Both added |
+| Dead assertion after logout | F4 | none | accepted | Removed |
+| Slack escaping, key-share locks, jose and layout missing from the docs | F6, F7, F8 | none | accepted | Design updated, D-030 |
+| Commit `50d61a3` has scope `api` but changes root files | F9 | none | accepted for the future | The commit is local, but rewriting six commits for a scope label is not worth the risk. Commits that span projects now leave the scope empty. |
+
+- Comparison: reviewer-gpt found all three major issues, which are about logs, claim fencing and send deadlines. reviewer-opus found none of them, and it listed the `exp` check as verified. reviewer-opus found the test gaps around auth: the database role, the cookie attributes and the rate limit. reviewer-gpt missed those. Both found that the SKIP LOCKED test did not test SKIP LOCKED. Both reported that the shared terminal mixed their command output with the other reviewer's.
+- Fixes: prompts `015-m3-fix-worker.md` and `016-m3-fix-security-tests.md`. The implementer for 016 was told not to touch `apps/api/src/delivery`, so it left the worker's two raw error logs and the missing `limit` in the shared `AdminAlertsQuery`. The orchestrator made those two edits itself: `safeErrorLog` in two worker log calls, and `ListQuery.extend` in `libs/shared/src/lib/admin.ts`. It then reran the full build and tests and the end-to-end check.
+- Status: corrected.
