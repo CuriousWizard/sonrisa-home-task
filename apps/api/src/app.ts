@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { DatabaseError } from 'pg';
 import { ZodError } from 'zod';
+import { alertRoutes } from './alerts/routes';
 import { authRoutes } from './auth/routes';
 import { createSessionTokens, type SessionTokens } from './auth/session';
 import type { ChannelRegistry } from './channels/registry';
@@ -99,6 +100,7 @@ export async function buildApp(
   app.get('/api/health', async () => ({ status: 'ok' }));
   await app.register(authRoutes, { prefix: '/api/auth', config });
   await app.register(targetRoutes, { prefix: '/api/targets' });
+  await app.register(alertRoutes, { prefix: '/api/alerts' });
 
   return app;
 }

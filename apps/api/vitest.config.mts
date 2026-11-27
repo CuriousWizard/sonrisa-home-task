@@ -19,6 +19,8 @@ export default defineConfig(() => ({
     watch: false,
     globals: true,
     environment: 'node',
+    // Route specs share rows such as the channels table, so files run one at a time.
+    fileParallelism: false,
     env: {
       NODE_ENV: 'test',
       // So no test can reach the main database.
