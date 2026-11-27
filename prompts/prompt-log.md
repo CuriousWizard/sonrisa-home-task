@@ -141,6 +141,20 @@ I've clicked on keep here in VS Code chat and there are uncommited changes. I th
 Continue with M4
 ```
 
+## 012 Squash commits, prepare a handoff prompt for M6
+
+```text
+Before we move on I want you to squash commits because if I remember correctly the task documentation asks to commit by each milestones, right?
+
+Additionally, the context of this chat getting huge so I want to run M6 on a separate new chat after M5. Create a prompt file that I can give to that so M6 chat has all the context it needs.
+```
+
+The agent quoted the brief, "commits for each major milestone, with meaningful commit messages", and asked whether to squash or keep the history. The user chose:
+
+```text
+Keep history, add milestone tags and a table
+```
+
 ## Chat exports
 
 | File                              | Covers                                   |

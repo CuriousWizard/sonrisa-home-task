@@ -38,6 +38,20 @@ Each milestone ends with a commit that follows the Angular convention in `AGENTS
 | M5  | API integration tests and one Playwright smoke test                                       | 15 min | All tests pass                                                                          |
 | M6  | README, screenshots, final review log, chat export                                        | 15 min | Submission is ready to push                                                             |
 
+## Milestone commits
+
+An annotated tag marks the last commit of each milestone, so `git log m2..m3` shows one milestone. A milestone has several commits, because the history keeps the state before and after each review (D-036).
+
+| Tag  | Commits                        | Contents                                                                                                              |
+| ---- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `m0` | `a96986b..02e11c4`, 2 commits  | AGENTS.md, reviewer agents, plan, requirements, decision log, AI review log, prompt log                               |
+| `m1` | `28355cf..557e9e1`, 4 commits  | Design draft as sent to review, design revised after both reviews, M1 chat export                                     |
+| `m2` | `470af59..d637df1`, 4 commits  | Nx workspace, Docker Compose, shared schemas, M2 reviews, reviewer files checked against the Opus 5.5 prompting guide |
+| `m3` | `50d61a3..00fbbf3`, 11 commits | Backend in six parts, M3 review fixes, M3 docs, M2 and M3 chat export                                                 |
+| `m4` | `4add287..0edb6b8`, 6 commits  | Web app in three parts, M4 review fixes, M4 docs                                                                      |
+
+The tags for M5 and M6 are added when those milestones end.
+
 ## Order and reasons
 
 1. Process docs come first. The graders read them first, and every later subagent prompt points at them.

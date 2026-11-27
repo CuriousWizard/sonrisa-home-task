@@ -212,3 +212,9 @@ Each entry records what was decided, which options were considered, who decided,
 
 - Decided by: the implementer for prompt 017 added the file without reporting it. The orchestrator found it in the tree and accepted it.
 - Reason: Nx loads the root `.env` into every task, and the root `.env` sets `PORT=3000` for the API. The Angular dev server prefers `PORT` over its `port` option, so `nx serve web` tried to take the API's port. Nx loads a task-specific `.env.serve` before the root file, so `PORT=4200` there wins for the web app only. reviewer-opus traced both rules in the package sources.
+
+## D-036 Keep the commit history and tag the milestones
+
+- Options: squash each milestone into one commit and force-push main, squash only the unpushed M4 commits, keep the history and add annotated tags.
+- Decided by: user, after the orchestrator quoted the brief.
+- Reason: the brief asks for "commits for each major milestone, with meaningful commit messages", not for one commit each. The separate commits are evidence: `28355cf` and `4b33480` show what the M1 reviews changed, and the `fix:` commits after M3 and M4 show what the code reviews changed. Squashing M0 to M3 would also need a force push of main. Tags `m0` to `m4` and the table in `docs/plan.md` make each milestone easy to find.

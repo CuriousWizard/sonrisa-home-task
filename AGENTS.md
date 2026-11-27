@@ -8,17 +8,18 @@ An alerting app. Users create alert rules for world events in three categories: 
 
 The repository is an interview submission. Reviewers grade the process, so the process artifacts matter as much as the code.
 
-| File                         | Purpose                                                  |
-| ---------------------------- | -------------------------------------------------------- |
-| `docs/plan.md`               | Milestones, order, cut list                              |
-| `docs/requirements.md`       | How the brief was interpreted, assumptions, out of scope |
-| `docs/design.md`             | Architecture, data model, API                            |
-| `docs/decision-log.md`       | Decisions with options and reasons                       |
-| `docs/ai-review-log.md`      | AI output that was checked, rejected or corrected        |
-| `docs/reviews/`              | Reviewer replies, unedited                               |
-| `docs/prompting-opus-5-5.md` | Prompting notes for Claude Opus 5.5 and where they apply |
-| `prompts/prompt-log.md`      | User prompts, word for word                              |
-| `prompts/subagents/`         | Prompts the orchestrator sent to subagents               |
+| File                         | Purpose                                                      |
+| ---------------------------- | ------------------------------------------------------------ |
+| `docs/plan.md`               | Milestones, order, cut list                                  |
+| `docs/requirements.md`       | How the brief was interpreted, assumptions, out of scope     |
+| `docs/design.md`             | Architecture, data model, API                                |
+| `docs/decision-log.md`       | Decisions with options and reasons                           |
+| `docs/ai-review-log.md`      | AI output that was checked, rejected or corrected            |
+| `docs/reviews/`              | Reviewer replies, unedited                                   |
+| `docs/prompting-opus-5-5.md` | Prompting notes for Claude Opus 5.5 and where they apply     |
+| `prompts/prompt-log.md`      | User prompts, word for word                                  |
+| `prompts/subagents/`         | Prompts the orchestrator sent to subagents                   |
+| `prompts/handoff/`           | Prompts that start a new chat with an earlier chat's context |
 
 Read `docs/requirements.md` and `docs/design.md` before changing code.
 
