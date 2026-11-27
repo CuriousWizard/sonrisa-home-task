@@ -9,6 +9,7 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
     "e2e": "nx run web-e2e:e2e",
+    "screenshots": "node scripts/screenshots.mjs",
     "db:generate": "cd apps/api && drizzle-kit generate",
     "db:migrate": "tsx --tsconfig apps/api/tsconfig.app.json apps/api/src/db/migrate.ts",
     "db:seed": "tsx --tsconfig apps/api/tsconfig.app.json apps/api/src/db/seed.ts"

@@ -53,13 +53,13 @@
         <th hlmTh>Time</th>
         <th hlmTh>Status</th>
         <th hlmTh>Actions</th>
+        <th hlmTh>Attempts</th>
+        <th hlmTh>Last error</th>
         <th hlmTh>Channel</th>
         <th hlmTh>Event</th>
         <th hlmTh>Alert</th>
         <th hlmTh>Target</th>
         <th hlmTh>User</th>
-        <th hlmTh>Attempts</th>
-        <th hlmTh>Last error</th>
       </tr>
     </thead>
     <tbody hlmTBody>
@@ -101,6 +101,10 @@
             }
           </div>
         </td>
+        <td hlmTd class="tabular-nums">{{ delivery.attempts }}</td>
+        <td hlmTd class="w-64 whitespace-normal wrap-anywhere">
+          {{ delivery.lastError }}
+        </td>
         <td hlmTd>{{ channelLabels[delivery.channel] }}</td>
         <td hlmTd>
           <span class="block max-w-xs truncate" [title]="delivery.eventTitle"
@@ -110,10 +114,6 @@
         <td hlmTd>{{ delivery.alertName }}</td>
         <td hlmTd>{{ delivery.targetName }}</td>
         <td hlmTd>{{ delivery.userEmail }}</td>
-        <td hlmTd class="tabular-nums">{{ delivery.attempts }}</td>
-        <td hlmTd class="w-64 whitespace-normal wrap-anywhere">
-          {{ delivery.lastError }}
-        </td>
       </tr>
       }
     </tbody>
